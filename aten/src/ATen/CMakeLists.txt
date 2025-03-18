@@ -1,3 +1,4 @@
+
 cmake_minimum_required(VERSION 3.18 FATAL_ERROR)
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
 
@@ -119,6 +120,8 @@ file(GLOB tt_h "tt/*.h")
 file(GLOB tt_cpp "tt/*.cpp")
 file(GLOB_RECURSE native_tt_h "native/tt/*.h")
 file(GLOB_RECURSE native_tt_srcs "native/tt/*.cpp")
+
+list(APPEND ATen_CPU_INCLUDE "$ENV{TT_METAL_HOME}/tt_stl/" "$ENV{TT_METAL_HOME}/tt_metal/api/" "$ENV{TT_METAL_HOME}/tt_metal/third_party/umd/device/api/" "$ENV{TT_METAL_HOME}/tt_metal/hostdevcommon/api/")
 
 file(GLOB native_sparse_cpp "native/sparse/*.cpp")
 file(GLOB native_quantized_cpp

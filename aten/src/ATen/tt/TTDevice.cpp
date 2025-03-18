@@ -5,6 +5,8 @@
 #include <c10/util/Registry.h>
 #include <c10/core/Storage.h>
 
+#include <tt-metalium/host_api.hpp>
+
 namespace at::tt {
 
 class TTAllocator : public c10::Allocator {
