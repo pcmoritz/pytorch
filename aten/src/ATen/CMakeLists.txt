@@ -104,6 +104,7 @@ file(GLOB native_ao_sparse_cpp
             "native/ao_sparse/cpu/*.cpp"
             "native/ao_sparse/quantized/*.cpp"
             "native/ao_sparse/quantized/cpu/*.cpp")
+
 # MPS
 file(GLOB mps_cpp "mps/*.cpp")
 file(GLOB mps_mm "mps/*.mm")
@@ -112,6 +113,12 @@ file(GLOB_RECURSE native_mps_cpp "native/mps/*.cpp")
 file(GLOB_RECURSE native_mps_mm "native/mps/*.mm")
 file(GLOB_RECURSE native_mps_metal "native/mps/*.metal")
 file(GLOB_RECURSE native_mps_h "native/mps/*.h")
+
+# TT
+file(GLOB tt_h "tt/*.h")
+file(GLOB tt_cpp "tt/*.cpp")
+file(GLOB_RECURSE native_tt_h "native/tt/*.h")
+file(GLOB_RECURSE native_tt_srcs "native/tt/*.cpp")
 
 file(GLOB native_sparse_cpp "native/sparse/*.cpp")
 file(GLOB native_quantized_cpp
@@ -293,6 +300,9 @@ elseif(APPLE AND USE_PYTORCH_METAL)
 else()
   set(all_cpu_cpp ${all_cpu_cpp} ${metal_cpp})
 endif()
+
+# TT
+set(all_cpu_cpp ${all_cpu_cpp} ${tt_cpp} ${native_tt_srcs})
 
 if(USE_CUDA AND USE_ROCM)
   message(FATAL_ERROR "ATen doesn't not currently support simultaneously building with CUDA and ROCM")

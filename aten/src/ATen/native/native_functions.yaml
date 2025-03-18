@@ -2506,6 +2506,7 @@
     CPU: empty_strided_cpu
     CUDA: empty_strided_cuda
     MPS: empty_strided_mps
+    TT: empty_strided_tt
     Meta: empty_strided_meta_symint
     QuantizedCPU, QuantizedCUDA: empty_strided_unknown_quantized
   autogen: empty_strided.out
