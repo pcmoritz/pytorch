@@ -31,6 +31,9 @@ TensorBase empty_tt(
         /*resizeable=*/true);
   auto tensor =
         detail::make_tensor<TensorImpl>(storage_impl, DispatchKey::TT, dtype_meta);
+  if (size.size() != 1 || size[0] != 0) {
+    tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
+  }
   return tensor;
 }
 

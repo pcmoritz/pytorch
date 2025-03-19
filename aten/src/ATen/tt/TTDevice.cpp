@@ -7,10 +7,16 @@
 
 #include <tt-metalium/host_api.hpp>
 
+using namespace tt;
+using namespace tt::tt_metal;
+
 namespace at::tt {
 
 class TTAllocator : public c10::Allocator {
 public:
+  TTAllocator() {
+    device_ = CreateDevice(0);
+  }
   virtual void emptyCache() const {}
   virtual void freeInactiveBuffers() const {}
   virtual ssize_t getUnalignedBufferSize(const void* ptr) const { return -1; }
@@ -37,9 +43,24 @@ public:
   virtual bool waitForEvents(c10::ArrayRef<const void*> buffers) const {return false; }
 
   virtual DataPtr allocate(size_t n) {
-    return DataPtr();
+    
+    InterleavedBufferConfig config{
+        .device = device_,
+        .size = n,
+        .page_size = n,
+        .buffer_type = BufferType::DRAM
+    };
+    buffers_.push_back(CreateBuffer(config));
+    return DataPtr(reinterpret_cast<void*>(buffers_.back()->address()), DeviceType::TT);
   }
-  virtual void copy_data(void* dest, const void* src, std::size_t count) const {}
+  virtual void copy_data(void* dest, const void* src, std::size_t count) const {
+    CommandQueue& cq = device_->command_queue();
+    EnqueueWriteBuffer(cq, buffers_[0], src, false); // TODO(pcm): Fix this
+    Finish(cq);
+  }
+private:
+  std::vector<std::shared_ptr<Buffer>> buffers_;
+  IDevice* device_;
 };
 
 at::Allocator* GetTTAllocator(bool useSharedAllocator) {

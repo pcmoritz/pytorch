@@ -2,6 +2,7 @@
 
 #include <ATen/Tensor.h>
 #include <ATen/tt/Context.h>
+#include <ATen/tt/TTDevice.h>
 
 namespace at {
 namespace tt {
@@ -13,11 +14,10 @@ TTImplRegistrar::TTImplRegistrar(TTInterface* impl) {
 }
 
 at::Tensor& tt_copy_(at::Tensor& self, const at::Tensor& src) {
-  auto p = at::tt::g_tt_impl_registry.load();
-  if (p) {
-    return p->tt_copy_(self, src);
-  }
-  AT_ERROR("TT backend was not linked to the build");
+  auto cpu_tensor_contiguous = src.contiguous();
+  auto* allocator = GetTTAllocator();
+  allocator->copy_data(self.data_ptr<float>(), cpu_tensor_contiguous.data_ptr<float>(), 5 * sizeof(float)); // TODO(pcm): Fix this
+  return self;
 }
 } // namespace tt
 
