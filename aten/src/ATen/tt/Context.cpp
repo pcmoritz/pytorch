@@ -16,7 +16,7 @@ TTImplRegistrar::TTImplRegistrar(TTInterface* impl) {
 at::Tensor& tt_copy_(at::Tensor& self, const at::Tensor& src) {
   auto cpu_tensor_contiguous = src.contiguous();
   auto* allocator = GetTTAllocator();
-  allocator->copy_data(self.data_ptr<float>(), cpu_tensor_contiguous.data_ptr<float>(), 5 * sizeof(float)); // TODO(pcm): Fix this
+  allocator->copy_data(self.mutable_data_ptr(), cpu_tensor_contiguous.const_data_ptr(), src.nbytes());
   return self;
 }
 } // namespace tt

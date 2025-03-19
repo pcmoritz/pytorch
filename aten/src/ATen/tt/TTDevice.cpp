@@ -43,7 +43,7 @@ public:
   virtual bool waitForEvents(c10::ArrayRef<const void*> buffers) const {return false; }
 
   virtual DataPtr allocate(size_t n) {
-    
+    std::cout << "allocating " << n << std::endl;
     InterleavedBufferConfig config{
         .device = device_,
         .size = n,

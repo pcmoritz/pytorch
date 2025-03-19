@@ -28,12 +28,12 @@ Tensor empty_strided_tt(
   check_size_nonnegative(size);
   // empty memory formatempty
   auto t = at::native::empty_tt(
-      {0},
+      size,
       dtype_opt,
       layout_opt,
       device_opt,
       pin_memory_opt);
-  // resize_impl_mps_(t.unsafeGetTensorImpl(), size, stride);
+  // resize_impl_tt_(t.unsafeGetTensorImpl(), size, stride);
   return t;
 }
   
