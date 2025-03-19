@@ -1,3 +1,23 @@
+#include <ATen/ATen.h>
+
+namespace at::native {
+
+Tensor empty_tt(
+    IntArrayRef size,
+    std::optional<ScalarType> dtype_opt,
+    std::optional<Layout> layout_opt,
+    std::optional<Device> device_opt,
+    std::optional<bool> pin_memory_opt);
+
+Tensor empty_strided_tt(
+    IntArrayRef size,
+    IntArrayRef stride,
+    std::optional<ScalarType> dtype_opt,
+    std::optional<Layout> layout_opt,
+    std::optional<Device> device_opt,
+    std::optional<bool> pin_memory_opt);
+
+}
 
 #define AT_DISPATCH_TT_TYPES(TYPE, NAME, ...)                                  \
   AT_DISPATCH_SWITCH(                                                          \

@@ -1,4 +1,5 @@
-#include <ATen/ATen.h>
+#include <ATen/native/tt/TensorFactory.h>
+
 #include <ATen/Tensor.h>
 #include <ATen/Utils.h>
 #include <torch/library.h>

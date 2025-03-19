@@ -1,3 +1,5 @@
+#include <ATen/tt/EmptyTensor.h>
+
 #include <ATen/EmptyTensor.h>
 #include <ATen/ATen.h>
 #include <ATen/Tensor.h>
