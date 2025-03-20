@@ -7,7 +7,7 @@
 > a = torch.ones(2 * 1024 * 64)
 > b = a.to("tt")
 > c = b + b
-> c.to("cpu")
+> c.to("cpu")[:2 * 2 * 1024]
 > ```
 
 ## Setup Instructions
