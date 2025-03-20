@@ -16,7 +16,7 @@ TTAllocator::TTAllocator() {
   device_ = CreateDevice(0);
 }
 
-virtual DataPtr TTAllocator::allocate(size_t n) {
+DataPtr TTAllocator::allocate(size_t n) {
   std::cout << "allocating " << n << std::endl;
   InterleavedBufferConfig config{
       .device = device_,
@@ -28,7 +28,7 @@ virtual DataPtr TTAllocator::allocate(size_t n) {
   return DataPtr(reinterpret_cast<void*>(buffers_.back()->address()), DeviceType::TT);
 }
 
-virtual void TTAllocator::copy_data(void* dest, const void* src, std::size_t count) const {
+void TTAllocator::copy_data(void* dest, const void* src, std::size_t count) const {
   CommandQueue& cq = device_->command_queue();
   EnqueueWriteBuffer(cq, buffers_[0], src, false); // TODO(pcm): Fix this
   Finish(cq);

@@ -48,7 +48,7 @@ TensorBase empty_strided_tt(
   auto* allocator = at::tt::GetTTAllocator();
   constexpr c10::DispatchKeySet tt_dks(c10::DispatchKey::TT);
   return at::detail::empty_strided_generic(
-      size, stride, allocator, tt_dks, dtype);
+      size, stride, static_cast<c10::Allocator*>(allocator), tt_dks, dtype);
 }
 
 TensorBase empty_strided_tt(

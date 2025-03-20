@@ -3,6 +3,11 @@
 #include <c10/core/Allocator.h>
 #include <c10/macros/Macros.h>
 
+namespace tt::tt_metal {
+class Buffer;
+class Device;
+}
+
 namespace at::tt {
 
 class TTAllocator : public c10::Allocator {
@@ -34,12 +39,12 @@ public:
   virtual bool recordEvents(c10::ArrayRef<const void*> buffers) const { return false; }
   virtual bool waitForEvents(c10::ArrayRef<const void*> buffers) const {return false; }
 
-  virtual DataPtr TTAllocator::allocate(size_t n);
-  virtual void copy_data(void* dest, const void* src, std::size_t count) const;
+  virtual DataPtr allocate(size_t n) override;
+  virtual void copy_data(void* dest, const void* src, std::size_t count) const override;
 
 private:
-  std::vector<std::shared_ptr<Buffer>> buffers_;
-  IDevice* device_;
+  std::vector<std::shared_ptr<tt::tt_metal::Buffer>> buffers_;
+  tt::tt_metal::Device* device_;
 };
 
 TORCH_API TTAllocator* GetTTAllocator(bool useSharedAllocator = false);
