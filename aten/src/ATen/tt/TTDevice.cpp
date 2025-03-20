@@ -1,8 +1,6 @@
 #include <ATen/tt/TTDevice.h>
 
-#include <c10/core/Allocator.h>
 #include <c10/util/Registry.h>
-#include <c10/core/Storage.h>
 
 #include <tt-metalium/host_api.hpp>
 

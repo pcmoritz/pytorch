@@ -2,6 +2,7 @@
 
 #include <ATen/core/ATen_fwd.h>
 #include <c10/core/Allocator.h>
+#include <c10/core/Storage.h>
 #include <c10/macros/Macros.h>
 
 namespace tt::tt_metal {
