@@ -12,12 +12,6 @@ using namespace tt::tt_metal;
 namespace at {
 namespace tt {
 
-std::atomic<const TTInterface*> g_tt_impl_registry;
-
-TTImplRegistrar::TTImplRegistrar(TTInterface* impl) {
-  g_tt_impl_registry.store(impl);
-}
-
 at::Tensor& tt_copy_(at::Tensor& self, const at::Tensor& src) {
   auto* allocator = GetTTAllocator();
   CommandQueue& cq = allocator->device()->command_queue();
@@ -38,8 +32,7 @@ at::Tensor& tt_copy_(at::Tensor& self, const at::Tensor& src) {
 
 namespace native {
 bool is_tt_available() {
-  auto p = at::tt::g_tt_impl_registry.load();
-  return p ? p->is_tt_available() : false;
+  return true;
 }
 
 } // namespace native
