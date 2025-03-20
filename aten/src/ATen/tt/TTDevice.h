@@ -18,7 +18,7 @@ public:
   virtual void emptyCache() const {}
   virtual void freeInactiveBuffers() const {}
   virtual ssize_t getUnalignedBufferSize(const void* ptr) const { return -1; }
-  virtual IntArrayRef getBufferShape(const void* ptr) const { return IntArrayRef(); }
+  virtual IntArrayRef getBufferShape(const void* ptr) const;
   virtual id_t getBufferId(const void* ptr) const { return 0; }
   virtual void setBufferShape(const void* ptr, const IntArrayRef& shape)
     const {}

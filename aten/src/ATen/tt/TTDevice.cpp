@@ -15,6 +15,10 @@ TTAllocator::TTAllocator() {
   device_ = CreateDevice(0);
 }
 
+IntArrayRef TTAllocator::getBufferShape(const void* ptr) const {
+  return IntArrayRef();
+}
+
 DataPtr TTAllocator::allocate(size_t n) {
   std::cout << "allocating " << n << std::endl;
   InterleavedBufferConfig config{
