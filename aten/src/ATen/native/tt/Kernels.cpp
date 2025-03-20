@@ -60,7 +60,7 @@ at::Tensor & add_out_tt(const at::Tensor & self, const at::Tensor & other, const
   constexpr uint32_t output_cb_index = ::tt::CBIndex::c_16;
   constexpr uint32_t num_output_tiles = 2;
   CircularBufferConfig cb_output_config =
-    CircularBufferConfig(num_output_tiles * single_tile_size, {{output_cb_index, ::tt::DataFormat::Float16_b}})
+    CircularBufferConfig(num_output_tiles * single_tile_size, {{output_cb_index, ::tt::DataFormat::Float32}})
         .set_page_size(output_cb_index, single_tile_size);
   CBHandle cb_output = ::tt::tt_metal::CreateCircularBuffer(program, core, cb_output_config);
 

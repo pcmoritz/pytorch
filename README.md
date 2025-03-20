@@ -1,6 +1,14 @@
 # PyTorch for TensorTorrent Hardware: Installation Guide
 
 > **Note**: This is a very early attempt to port of PyTorch (eager) to TensorTorrent hardware. Feel free to leave feedback and open PRs to cover more features.
+> Right now, the exact functionality that works is covered by (yep, even the dimensions are hardcoded to the ones from `eltwise_binary.cpp`):
+> ```python
+> import torch
+> a = torch.zeros(2 * 1024 * 64)
+> b = a.to("tt")
+> c = b + b
+> c.to("cpu")
+> ```
 
 ## Setup Instructions
 
