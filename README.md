@@ -4,7 +4,7 @@
 > Right now, the exact functionality that works is covered by (yep, even the dimensions are hardcoded to the ones from `eltwise_binary.cpp`):
 > ```python
 > import torch
-> a = torch.zeros(2 * 1024 * 64)
+> a = torch.ones(2 * 1024 * 64)
 > b = a.to("tt")
 > c = b + b
 > c.to("cpu")
