@@ -1,5 +1,6 @@
 #pragma once
 
+#include <ATen/core/ATen_fwd.h>
 #include <c10/core/Allocator.h>
 #include <c10/macros/Macros.h>
 

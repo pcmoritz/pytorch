@@ -1,6 +1,5 @@
 #include <ATen/tt/TTDevice.h>
 
-#include <ATen/core/ATen_fwd.h>
 #include <c10/core/Allocator.h>
 #include <c10/util/Registry.h>
 #include <c10/core/Storage.h>
