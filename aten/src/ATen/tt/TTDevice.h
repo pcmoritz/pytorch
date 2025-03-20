@@ -43,8 +43,8 @@ public:
   virtual void copy_data(void* dest, const void* src, std::size_t count) const override;
 
 private:
-  std::vector<std::shared_ptr<tt::tt_metal::Buffer>> buffers_;
-  tt::tt_metal::Device* device_;
+  std::vector<std::shared_ptr<::tt::tt_metal::Buffer>> buffers_;
+  ::tt::tt_metal::Device* device_;
 };
 
 TORCH_API TTAllocator* GetTTAllocator(bool useSharedAllocator = false);
