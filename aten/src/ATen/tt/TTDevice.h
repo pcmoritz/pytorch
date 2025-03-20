@@ -6,7 +6,7 @@
 
 namespace tt::tt_metal {
 class Buffer;
-class Device;
+class IDevice;
 }
 
 namespace at::tt {
@@ -45,7 +45,7 @@ public:
 
 private:
   std::vector<std::shared_ptr<::tt::tt_metal::Buffer>> buffers_;
-  ::tt::tt_metal::Device* device_;
+  ::tt::tt_metal::IDevice* device_;
 };
 
 TORCH_API TTAllocator* GetTTAllocator(bool useSharedAllocator = false);
