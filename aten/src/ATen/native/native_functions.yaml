@@ -2387,6 +2387,7 @@
     CPU: empty_cpu
     CUDA: empty_cuda
     MPS: empty_mps
+    TT: empty_tt
     Meta: empty_meta_symint
     MkldnnCPU: empty_mkldnn
     SparseCPU, SparseCUDA: empty_sparse

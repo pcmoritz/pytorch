@@ -13,7 +13,8 @@ Tensor empty_tt(
     std::optional<ScalarType> dtype_opt,
     std::optional<Layout> layout_opt,
     std::optional<Device> device_opt,
-    std::optional<bool> pin_memory_opt) {
+    std::optional<bool> pin_memory_opt,
+    std::optional<MemoryFormat> memory_format) {
 
   return at::detail::empty_tt(size, dtype_opt, layout_opt, device_opt, pin_memory_opt);
 }

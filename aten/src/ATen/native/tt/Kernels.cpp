@@ -7,11 +7,6 @@ using namespace tt::tt_metal;
 namespace at::native {
 
 at::Tensor & add_out_tt(const at::Tensor & self, const at::Tensor & other, const at::Scalar & alpha, at::Tensor & out) {
-  // TODO: Implement
-  return out;
-}
-
-at::Tensor & add_out_tt(const at::Tensor & self, const at::Tensor & other, const at::Scalar & alpha, at::Tensor & out) {
   Program program = CreateProgram();
   constexpr CoreCoord core = {0, 0};
   KernelHandle binary_reader_kernel_id = CreateKernel(
