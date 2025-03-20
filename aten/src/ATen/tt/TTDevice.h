@@ -43,9 +43,11 @@ public:
 
   virtual DataPtr allocate(size_t n) override;
   virtual void copy_data(void* dest, const void* src, std::size_t count) const override;
+  ::tt::tt_metal::IDevice* device() { return device_; }
+  std::shared_ptr<::tt::tt_metal::Buffer> get_buffer(void* data) const;
 
 private:
-  std::vector<std::shared_ptr<::tt::tt_metal::Buffer>> buffers_;
+  std::unordered_map<void*, std::shared_ptr<::tt::tt_metal::Buffer>> buffers_;
   ::tt::tt_metal::IDevice* device_;
 };
 

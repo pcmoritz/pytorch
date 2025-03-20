@@ -25,14 +25,19 @@ DataPtr TTAllocator::allocate(size_t n) {
       .page_size = n,
       .buffer_type = BufferType::DRAM
   };
-  buffers_.push_back(CreateBuffer(config));
-  return DataPtr(reinterpret_cast<void*>(buffers_.back()->address()), DeviceType::TT);
+  auto buffer = CreateBuffer(config);
+  auto address = reinterpret_cast<void*>(buffer->address());
+  buffers_[address] = std::move(buffer);
+  return DataPtr(address, DeviceType::TT);
 }
 
 void TTAllocator::copy_data(void* dest, const void* src, std::size_t count) const {
-  CommandQueue& cq = device_->command_queue();
-  EnqueueWriteBuffer(cq, buffers_[0], src, false); // TODO(pcm): Fix this
-  Finish(cq);
+}
+
+std::shared_ptr<Buffer> TTAllocator::get_buffer(void* data) const {
+  auto it = buffers_.find(data);
+  AT_ASSERT(it != buffers_.end());
+  return it->second;
 }
 
 TTAllocator* GetTTAllocator(bool useSharedAllocator) {
