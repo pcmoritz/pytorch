@@ -588,6 +588,7 @@
     SparseCsrCUDA: add_out_sparse_compressed_cuda
     MkldnnCPU: mkldnn_add_out
     MPS: add_out_mps
+    TT: add_out_tt
   tags: pointwise
 
 - func: _add_relu.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor

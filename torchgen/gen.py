@@ -2987,6 +2987,8 @@ def main() -> None:
     if options.mps:
         functions_keys.add(DispatchKey.MPS)
 
+    functions_keys.add(DispatchKey.TT)
+
     if options.xpu:
         functions_keys.add(DispatchKey.XPU)
         aoti_backends.add(DispatchKey.XPU)
