@@ -6,8 +6,7 @@
 #include <ATen/Utils.h>
 #include <torch/library.h>
 #include <ATen/native/Resize.h>
-#include <ATen//tt/TTDevice.h>
-// #include <ATen/native/mps/Copy.h>
+#include <ATen/tt/TTDevice.h>
 
 namespace at { namespace detail {
 

@@ -7,6 +7,10 @@ using namespace tt::tt_metal;
 
 namespace at::native {
 
+// TODO(pcm): This is currently just putting the example
+// https://github.com/tenstorrent/tt-metal/blob/main/tt_metal/programming_examples/eltwise_binary/eltwise_binary.cpp
+// in. Going forward we should figure out how to adapt / run the existing tt_metal kernels.
+
 struct BinaryOpType {
     enum Enum { ADD = 0, SUB = 1, MUL = 2 };
     static const auto all() { return magic_enum::enum_values<Enum>(); }
