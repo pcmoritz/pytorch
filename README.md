@@ -23,7 +23,8 @@ git submodule update --init --recursive
 
 # Set environment variable and build
 export TT_METAL_HOME=/root/tt-metal
-./build_metal.sh --build-programming-examples ./build/programming_examples/eltwise_binary
+./build_metal.sh --build-programming-examples
+./build/programming_examples/eltwise_binary
 ```
 
 In addition you currently need to clone https://github.com/qlibs/reflect into `/root/reflect`.
