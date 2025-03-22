@@ -1,5 +1,7 @@
 #include <ATen/tt/EmptyTensor.h>
 
+#include <tt-metalium/host_api.hpp>
+
 #include <ATen/EmptyTensor.h>
 #include <ATen/ATen.h>
 #include <ATen/Tensor.h>
@@ -20,7 +22,7 @@ TensorBase empty_tt(
   int64_t nelements = c10::multiply_integers(size);
   auto dtype = dtype_or_default(dtype_opt);
   // Round the size up, so we can always transfer multiples of the tile size
-  int64_t nelements_padded = ((nelements + tt::constants::TILE_HW - 1) / tt::constants::TILE_HW) * tt::constants::TILE_HW;
+  int64_t nelements_padded = ((nelements + ::tt::constants::TILE_HW - 1) / ::tt::constants::TILE_HW) * ::tt::constants::TILE_HW;
   auto dtype_meta = scalarTypeToTypeMeta(dtype);
   int64_t size_bytes = nelements_padded * dtype_meta.itemsize();
   auto storage_impl = c10::make_intrusive<StorageImpl>(
