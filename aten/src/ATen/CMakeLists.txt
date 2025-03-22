@@ -121,7 +121,16 @@ file(GLOB tt_cpp "tt/*.cpp")
 file(GLOB_RECURSE native_tt_h "native/tt/*.h")
 file(GLOB_RECURSE native_tt_srcs "native/tt/*.cpp")
 
-list(APPEND ATen_CPU_INCLUDE "$ENV{TT_METAL_HOME}/tt_stl/" "$ENV{TT_METAL_HOME}/tt_metal/api/" "$ENV{TT_METAL_HOME}/tt_metal/third_party/umd/device/api/" "$ENV{TT_METAL_HOME}/tt_metal/hostdevcommon/api/" "/root/reflect")
+list(APPEND ATen_CPU_INCLUDE
+  "$ENV{TT_METAL_HOME}/tt_stl/"
+  "$ENV{TT_METAL_HOME}/tt_metal/api/"
+  "$ENV{TT_METAL_HOME}/tt_metal/third_party/umd/device/api/"
+  "$ENV{TT_METAL_HOME}/tt_metal/hostdevcommon/api/"
+  "$ENV{TT_METAL_HOME}/tt_metal/third_party/tracy/public/"
+  "$ENV{TT_METAL_HOME}/tt_metal/"
+  "$ENV{TT_METAL_HOME}/ttnn/"
+  "$ENV{TT_METAL_HOME}/ttnn/cpp/"
+  "/root/reflect")
 
 file(GLOB native_sparse_cpp "native/sparse/*.cpp")
 file(GLOB native_quantized_cpp
@@ -444,7 +453,7 @@ if(BLAS_FOUND)
   endif($ENV{TH_BINARY_BUILD})
 endif(BLAS_FOUND)
 
-list(APPEND ATen_CPU_DEPENDENCY_LIBS "$ENV{TT_METAL_HOME}/build/lib/libtt_metal.so")
+list(APPEND ATen_CPU_DEPENDENCY_LIBS "$ENV{TT_METAL_HOME}/build/lib/libtt_metal.so" "$ENV{TT_METAL_HOME}/build_Release/ttnn/libttnncpp.a")
 
 if(LAPACK_FOUND)
   list(APPEND ATen_CPU_DEPENDENCY_LIBS ${LAPACK_LIBRARIES})
