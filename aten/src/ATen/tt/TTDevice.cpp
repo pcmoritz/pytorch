@@ -17,15 +17,19 @@ IntArrayRef TTAllocator::getBufferShape(const void* ptr) const {
   return IntArrayRef();
 }
 
+static std::shared_ptr<Buffer> MakeBuffer(IDevice* device, uint32_t size, uint32_t page_size, BufferType buffer_type) {
+  InterleavedBufferConfig config{
+      .device = device,
+      .size = size,
+      .page_size = page_size,
+      .buffer_type = buffer_type
+  };
+  return CreateBuffer(config);
+}
+
 DataPtr TTAllocator::allocate(size_t n) {
   std::cout << "allocating " << n << std::endl;
-  InterleavedBufferConfig config{
-      .device = device_,
-      .size = n,
-      .page_size = n,
-      .buffer_type = BufferType::DRAM
-  };
-  auto buffer = CreateBuffer(config);
+  auto buffer = MakeBuffer(device_, n, n, BufferType::DRAM);
   auto address = reinterpret_cast<void*>(buffer->address());
   buffers_[address] = std::move(buffer);
   return DataPtr(address, DeviceType::TT);
