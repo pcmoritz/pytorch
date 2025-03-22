@@ -5037,6 +5037,7 @@
   dispatch:
     CPU, CUDA: relu
     MPS: relu_mps
+    TT: relu_tt
     MkldnnCPU: mkldnn_relu
     QuantizedCPU: relu_quantized_cpu
     QuantizedCUDA: relu_quantized_cuda

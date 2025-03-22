@@ -1,4 +1,5 @@
 #include <ATen/ops/add_native.h>
+#include <ATen/ops/relu_native.h>
 #include <ATen/tt/TTDevice.h>
 
 #include <tt-metalium/host_api.hpp>
@@ -122,6 +123,24 @@ at::Tensor & add_out_tt(const at::Tensor & self, const at::Tensor & other, const
   Finish(cq);
   
   return out;
+}
+
+// RELU
+
+static std::shared_ptr<Buffer> MakeBuffer(IDevice* device, uint32_t size, uint32_t page_size, BufferType buffer_type) {
+    InterleavedBufferConfig config{
+        .device = device,
+        .size = size,
+        .page_size = page_size,
+        .buffer_type = buffer_type
+    };
+    return CreateBuffer(config);
+}
+
+Tensor relu_tt(const Tensor& self) {
+  CommandQueue& cq = tt::GetTTAllocator()->device()->command_queue();
+  Program program = CreateProgram();
+  return self;
 }
 
 // static void sum_kernel_tt(TensorIterator& iter) {
