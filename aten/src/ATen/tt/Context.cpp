@@ -22,8 +22,12 @@ at::Tensor& tt_copy_(at::Tensor& self, const at::Tensor& src) {
   }
   else if (self.device().type() == at::kCPU) {
     AT_ASSERT(self.is_contiguous());
-    EnqueueReadBuffer(cq, allocator->get_buffer(src.data_ptr()), self.mutable_data_ptr(), true);
+    // We need to make sure to not copy the extra padding in the TT tensor to the CPU
+    // So currently we make a copy :(
+    std::vector<bfloat16> data;
+    EnqueueReadBuffer(cq, allocator->get_buffer(src.data_ptr()), data, true);
     Finish(cq);
+    std::memcpy(self.mutable_data_ptr(), &data[0], self.nbytes());
   } else {
     // TODO: Implement copy TT -> TT
   }
