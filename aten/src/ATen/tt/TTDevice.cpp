@@ -1,5 +1,6 @@
 #include <ATen/tt/TTDevice.h>
 
+#include <c10/util/Logging.h>
 #include <c10/util/Registry.h>
 
 #include <tt-metalium/host_api.hpp>
@@ -28,7 +29,7 @@ static std::shared_ptr<Buffer> MakeBuffer(IDevice* device, uint32_t size, uint32
 }
 
 DataPtr TTAllocator::allocate(size_t n) {
-  std::cout << "allocating " << n << std::endl;
+  LOG(INFO) << "allocating " << n << " bytes.";
   auto buffer = MakeBuffer(device_, n, 2 * ::tt::constants::TILE_HW, BufferType::DRAM);
   auto address = reinterpret_cast<void*>(buffer->address());
   buffers_[address] = std::move(buffer);
