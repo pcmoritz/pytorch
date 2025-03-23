@@ -5,6 +5,8 @@
 #include <tt-metalium/host_api.hpp>
 #include <tt-metalium/work_split.hpp>
 
+#include <iostream>
+
 using namespace tt;
 using namespace tt::tt_metal;
 
@@ -19,8 +21,8 @@ static CBHandle MakeCircularBuffer(
 }
 
 static CBHandle MakeCircularBufferF32(Program& program, const CoreSpec& core, CBIndex cb, uint32_t n_tiles) {
-  constexpr uint32_t tile_size = sizeof(float) * constants::TILE_HW;
-  return MakeCircularBuffer(program, core, cb, n_tiles * tile_size, tile_size, DataFormat::Float32);
+  constexpr uint32_t tile_size = sizeof(bfloat16) * constants::TILE_HW;
+  return MakeCircularBuffer(program, core, cb, n_tiles * tile_size, tile_size, DataFormat::Float16_b);
 }
 
 at::Tensor & add_out_tt(const at::Tensor & self, const at::Tensor & other, const at::Scalar & alpha, at::Tensor & out) {
@@ -30,15 +32,23 @@ at::Tensor & add_out_tt(const at::Tensor & self, const at::Tensor & other, const
   Program program = CreateProgram();
 
   const uint32_t n_tiles = (self.numel() + ::tt::constants::TILE_HW - 1) / ::tt::constants::TILE_HW;
+  std::cout << "n_tiles = " << n_tiles << std::endl;
 
   auto a = allocator->get_buffer(self.data_ptr());
+  std::cout << "a.size() = " << a->size() << std::endl;
+  std::cout << "a.address() = " << a->address() << std::endl;
   auto b = allocator->get_buffer(other.data_ptr());
+  std::cout << "b.size() = " << b->size() << std::endl;
+  std::cout << "b.address() = " << b->address() << std::endl;
   auto c = allocator->get_buffer(out.data_ptr());
+  std::cout << "c.size() = " << c->size() << std::endl;
+  std::cout << "c.address() = " << c->address() << std::endl;
 
   auto grid_size = device->compute_with_storage_grid_size();
   uint32_t num_cores_x = grid_size.x;
   uint32_t num_cores_y = grid_size.y;
   uint32_t num_cores_total = num_cores_x * num_cores_y;
+  std::cout << "num_cores_total = " << num_cores_total << std::endl;
   auto all_device_cores = CoreRange({0, 0}, {num_cores_x - 1, num_cores_y - 1});
 
   const uint32_t cir_buf_num_title = 4;
@@ -85,14 +95,16 @@ at::Tensor & add_out_tt(const at::Tensor & self, const at::Tensor & other, const
        uint32_t num_tiles_per_core;
 
       if (core_group_1.contains(core)) {
-          num_tiles_per_core = num_tiles_per_core_group_1;
+	std::cout << "group1: " << i << " " << num_tiles_per_core_group_1 << std::endl;
+        num_tiles_per_core = num_tiles_per_core_group_1;
       } else if (core_group_2.contains(core)) {
-          num_tiles_per_core = num_tiles_per_core_group_2;
+	std::cout << "group2: " << i << " " << num_tiles_per_core_group_2 << std::endl;
+        num_tiles_per_core = num_tiles_per_core_group_2;
       } else {
-          SetRuntimeArgs(program, reader, core, std::array<uint32_t, 10>{0});
-          SetRuntimeArgs(program, writer, core, std::array<uint32_t, 11>{0});
-          SetRuntimeArgs(program, compute, core, std::array<uint32_t, 3>{0});
-          continue;
+        SetRuntimeArgs(program, reader, core, std::array<uint32_t, 10>{0});
+        SetRuntimeArgs(program, writer, core, std::array<uint32_t, 11>{0});
+        SetRuntimeArgs(program, compute, core, std::array<uint32_t, 3>{0});
+        continue;
       }
       SetRuntimeArgs(program, reader, core, {a->address(), b->address(), num_tiles_per_core, start_tile_id});
       SetRuntimeArgs(program, writer, core, {c->address(), num_tiles_per_core, start_tile_id});
@@ -101,6 +113,15 @@ at::Tensor & add_out_tt(const at::Tensor & self, const at::Tensor & other, const
   }
 
   EnqueueProgram(cq, program, true);
+
+    // Read the output buffer.                                                                                                                                                                                                    
+    std::vector<bfloat16> c_data;
+    EnqueueReadBuffer(cq, c, c_data, true);
+
+    for (int i = 0; i < c_data.size(); i += 100) {
+      std::cout << i << " : " << c_data[i].to_float() << std::endl;
+    }
+  
   Finish(cq);
   
   return out;

@@ -29,7 +29,7 @@ static std::shared_ptr<Buffer> MakeBuffer(IDevice* device, uint32_t size, uint32
 
 DataPtr TTAllocator::allocate(size_t n) {
   std::cout << "allocating " << n << std::endl;
-  auto buffer = MakeBuffer(device_, n, n, BufferType::DRAM);
+  auto buffer = MakeBuffer(device_, n, 2 * ::tt::constants::TILE_HW, BufferType::DRAM);
   auto address = reinterpret_cast<void*>(buffer->address());
   buffers_[address] = std::move(buffer);
   return DataPtr(address, DeviceType::TT);

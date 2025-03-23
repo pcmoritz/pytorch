@@ -23,6 +23,7 @@ at::Tensor& tt_copy_(at::Tensor& self, const at::Tensor& src) {
   else if (self.device().type() == at::kCPU) {
     AT_ASSERT(self.is_contiguous());
     EnqueueReadBuffer(cq, allocator->get_buffer(src.data_ptr()), self.mutable_data_ptr(), true);
+    Finish(cq);
   } else {
     // TODO: Implement copy TT -> TT
   }
