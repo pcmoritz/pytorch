@@ -29,14 +29,19 @@ static std::shared_ptr<Buffer> MakeBuffer(IDevice* device, uint32_t size, uint32
 }
 
 DataPtr TTAllocator::allocate(size_t n) {
-  LOG(INFO) << "allocating " << n << " bytes.";
-  auto buffer = MakeBuffer(device_, n, 2 * ::tt::constants::TILE_HW, BufferType::DRAM);
+  AT_ASSERT(false);
+}
+
+DataPtr TTAllocator::allocate_with_page_size(size_t n, size_t page_size_bytes) {
+  LOG(INFO) << "allocating " << n << " bytes with page size " << page_size_bytes << " bytes.";
+  auto buffer = MakeBuffer(device_, n, page_size_bytes, BufferType::DRAM);
   auto address = reinterpret_cast<void*>(buffer->address());
   buffers_[address] = std::move(buffer);
   return DataPtr(address, DeviceType::TT);
 }
 
 void TTAllocator::copy_data(void* dest, const void* src, std::size_t count) const {
+  AT_ASSERT(false);
 }
 
 std::shared_ptr<Buffer> TTAllocator::get_buffer(void* data) const {

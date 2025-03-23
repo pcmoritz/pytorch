@@ -43,6 +43,8 @@ public:
 
   virtual DataPtr allocate(size_t n) override;
   virtual void copy_data(void* dest, const void* src, std::size_t count) const override;
+
+  DataPtr allocate_with_page_size(size_t n, size_t page_size_bytes);
   ::tt::tt_metal::IDevice* device() { return device_; }
   std::shared_ptr<::tt::tt_metal::Buffer> get_buffer(void* data) const;
 
