@@ -120,6 +120,77 @@ Tensor relu_tt(const Tensor& self) {
   const uint32_t n_tiles = (self.numel() + ::tt::constants::TILE_HW - 1) / ::tt::constants::TILE_HW;
   auto out = at::empty_like(self);
 
+  auto a = allocator->get_buffer(self.data_ptr());
+  auto b = allocator->get_buffer(out.data_ptr());
+
+  auto grid_size = device->compute_with_storage_grid_size();
+  uint32_t num_cores_x = grid_size.x;
+  uint32_t num_cores_y = grid_size.y;
+  uint32_t num_cores_total = num_cores_x * num_cores_y;
+  auto all_device_cores = CoreRange({0, 0}, {num_cores_x - 1, num_cores_y - 1});
+
+  const uint32_t cir_buf_num_title = 2;
+  CBHandle cb_a = MakeCircularBufferBF16(program, all_device_cores, CBIndex::c_0, cir_buf_num_title);
+  CBHandle cb_b = MakeCircularBufferBF16(program, all_device_cores, CBIndex::c_1, cir_buf_num_title);
+
+  std::vector<uint32_t> reader_compile_time_args = {(uint32_t)CBIndex::c_0};
+  std::vector<uint32_t> writer_compile_time_args = {(uint32_t)CBIndex::c_1};
+  std::vector<uint32_t> compute_compile_time_args = {(uint32_t)CBIndex::c_0, (uint32_t)CBIndex::c_1};
+
+  auto reader = CreateKernel(
+      program,
+      "tt_metal/programming_examples/vecadd_multi_core/kernels/"
+      "interleaved_tile_read_multi_core_unary.cpp",
+      all_device_cores,
+      DataMovementConfig{
+          .processor = DataMovementProcessor::RISCV_0,
+          .noc = NOC::RISCV_0_default,
+          .compile_args = reader_compile_time_args});
+  auto writer = CreateKernel(
+      program,
+      "tt_metal/programming_examples/vecadd_multi_core/kernels/"
+      "tile_write_multi_core.cpp",
+      all_device_cores,
+      DataMovementConfig{
+          .processor = DataMovementProcessor::RISCV_1,
+          .noc = NOC::RISCV_1_default,
+	  .compile_args = writer_compile_time_args});
+    auto compute = CreateKernel(
+      program,
+      "tt_metal/programming_examples/vecadd_multi_core/"
+      "kernels/sfpu_multi_core.cpp",
+      all_device_cores,
+      ComputeConfig{.math_approx_mode = false, .compile_args = compute_compile_time_args, .defines = {
+         {"SFPU_OP_RELU_FAMILY_INCLUDE", "1"}, {"SFPU_OP_CHAIN_0", "relu_tile_init(); relu_tile(0);"}}});
+
+  constexpr bool row_major = true;
+  auto [num_cores, all_cores, core_group_1, core_group_2, num_tiles_per_core_group_1, num_tiles_per_core_group_2] =
+      split_work_to_cores(grid_size, n_tiles, row_major);
+
+  auto cores = grid_to_cores(num_cores_total, num_cores_x, num_cores_y, row_major);
+  for (uint32_t i = 0, start_tile_id = 0; i < num_cores_total; i++) {
+      const auto& core = cores[i];
+       uint32_t num_tiles_per_core;
+
+      if (core_group_1.contains(core)) {
+          num_tiles_per_core = num_tiles_per_core_group_1;
+      } else if (core_group_2.contains(core)) {
+          num_tiles_per_core = num_tiles_per_core_group_2;
+      } else {
+          SetRuntimeArgs(program, reader, core, std::array<uint32_t, 10>{0});
+          SetRuntimeArgs(program, writer, core, std::array<uint32_t, 11>{0});
+          SetRuntimeArgs(program, compute, core, std::array<uint32_t, 3>{0});
+          continue;
+      }
+      SetRuntimeArgs(program, reader, core, {a->address(), num_tiles_per_core, start_tile_id});
+      SetRuntimeArgs(program, writer, core, {b->address(), num_tiles_per_core, start_tile_id});
+      SetRuntimeArgs(program, compute, core, {num_tiles_per_core, start_tile_id});
+      start_tile_id += num_tiles_per_core;
+  }
+
+  EnqueueProgram(cq, program, true);
+  Finish(cq);
+
   return out;
 }
 
