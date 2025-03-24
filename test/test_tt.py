@@ -10,6 +10,13 @@ class TestTT(unittest.TestCase):
             c = b.to("cpu")
             self.assertTrue((a == c).all())
 
+    def test_tt_add(self):
+        a = torch.ones(100000, dtype=torch.bfloat16)
+        b = a.to("tt")
+        c = b + b
+        d = c.to("cpu")
+        self.assertTrue((d == 2.0).all())
+
 if __name__ == "__main__":
     unittest.main()
 

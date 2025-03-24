@@ -20,7 +20,7 @@ static CBHandle MakeCircularBuffer(
     return CreateCircularBuffer(program, core, cb_src0_config);
 }
 
-static CBHandle MakeCircularBufferF32(Program& program, const CoreSpec& core, CBIndex cb, uint32_t n_tiles) {
+static CBHandle MakeCircularBufferBF16(Program& program, const CoreSpec& core, CBIndex cb, uint32_t n_tiles) {
   constexpr uint32_t tile_size = sizeof(bfloat16) * constants::TILE_HW;
   return MakeCircularBuffer(program, core, cb, n_tiles * tile_size, tile_size, DataFormat::Float16_b);
 }
@@ -44,9 +44,9 @@ at::Tensor & add_out_tt(const at::Tensor & self, const at::Tensor & other, const
   auto all_device_cores = CoreRange({0, 0}, {num_cores_x - 1, num_cores_y - 1});
 
   const uint32_t cir_buf_num_title = 4;
-  CBHandle cb_a = MakeCircularBufferF32(program, all_device_cores, CBIndex::c_0, cir_buf_num_title);
-  CBHandle cb_b = MakeCircularBufferF32(program, all_device_cores, CBIndex::c_1, cir_buf_num_title);
-  CBHandle cb_c = MakeCircularBufferF32(program, all_device_cores, CBIndex::c_2, cir_buf_num_title);
+  CBHandle cb_a = MakeCircularBufferBF16(program, all_device_cores, CBIndex::c_0, cir_buf_num_title);
+  CBHandle cb_b = MakeCircularBufferBF16(program, all_device_cores, CBIndex::c_1, cir_buf_num_title);
+  CBHandle cb_c = MakeCircularBufferBF16(program, all_device_cores, CBIndex::c_2, cir_buf_num_title);
 
   std::vector<uint32_t> reader_compile_time_args = {(uint32_t)CBIndex::c_0, (uint32_t)CBIndex::c_1};
   std::vector<uint32_t> writer_compile_time_args = {(uint32_t)CBIndex::c_2};
