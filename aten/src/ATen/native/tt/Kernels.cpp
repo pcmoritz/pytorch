@@ -5,7 +5,7 @@
 #include <tt-metalium/host_api.hpp>
 #include <tt-metalium/work_split.hpp>
 
-#include <iostream>
+#include <ATen/ATen.h>
 
 using namespace tt;
 using namespace tt::tt_metal;
@@ -117,7 +117,10 @@ Tensor relu_tt(const Tensor& self) {
   CommandQueue& cq = device->command_queue();
   Program program = CreateProgram();
 
-  return self;
+  const uint32_t n_tiles = (self.numel() + ::tt::constants::TILE_HW - 1) / ::tt::constants::TILE_HW;
+  auto out = at::empty_like(self);
+
+  return out;
 }
 
 // static void sum_kernel_tt(TensorIterator& iter) {
