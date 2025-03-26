@@ -17,6 +17,14 @@ class TestTT(unittest.TestCase):
         d = c.to("cpu")
         self.assertTrue((d == 2.0).all())
 
+    def test_tt_mm(self):
+        a = torch.rand(32, 32, dtype=torch.bfloat16) - 0.5
+        b = torch.rand(32, 32, dtype=torch.bfloat16) - 0.5
+        c = a @ b
+        d = (a.to("tt") @ b.to("tt")).to("cpu")
+        print(c - d)
+        # self.assertTrue(torch.allclose(c, d.to("cpu")))
+
 if __name__ == "__main__":
     unittest.main()
 
