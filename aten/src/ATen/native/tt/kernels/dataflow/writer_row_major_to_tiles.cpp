@@ -36,8 +36,6 @@ void kernel_main() {
     constexpr uint32_t face_offset[4] = {0, FACE_WIDTH, N * FACE_HEIGHT, N * FACE_HEIGHT + FACE_WIDTH};
     constexpr uint32_t l1_face_offset[4] = {0, FACE_WIDTH, TILE_WIDTH * FACE_HEIGHT, TILE_WIDTH * FACE_HEIGHT + FACE_WIDTH};
 
-    DPRINT << "TTT " << num_tiles << ENDL();
-
 #ifdef BACKWARDS
     uint32_t end_id = start_id - num_tiles;
     for (uint32_t i = start_id; i != end_id; --i) {
@@ -48,20 +46,17 @@ void kernel_main() {
         cb_wait_front(cb_id_out, onetile);
         uint32_t l1_read_addr = get_read_ptr(cb_id_out);
 
-	// uint64_t idx = 0;
 #pragma GCC unroll 4
 	for (uint32_t f = 0; f < 4; ++f) {
 #pragma GCC unroll FACE_HEIGHT
           for (uint32_t h = 0; h < FACE_HEIGHT; ++h) {
-            uint64_t offset = face_offset[f] + h * ld; // (face_offset[f] + h * ld) * datum_size_bytes;                                                                                                                                                                                                                  
-            // DPRINT << "XXX " << offset / FACE_WIDTH << ENDL();                                                                                                                                                                                                                                                              
+            uint64_t offset = face_offset[f] + h * ld;
             uint64_t s_noc_addr = get_noc_addr(offset / FACE_WIDTH, s);
-            // DPRINT << "XXX f = " << f << ", h = " << h << ", offset = " << (l1_face_offset[f] + h * TILE_WIDTH) * datum_size_bytes << ENDL();                                                                                                                                                                               
-            noc_async_write(l1_read_addr, // + (l1_face_offset[f] + h * TILE_WIDTH) * datum_size_bytes,
+
+            noc_async_write(l1_read_addr,
                             s_noc_addr,
                             FACE_WIDTH * datum_size_bytes);
 	    l1_read_addr += FACE_WIDTH * datum_size_bytes;
-	    // idx += 1;
           }
 	}
 
