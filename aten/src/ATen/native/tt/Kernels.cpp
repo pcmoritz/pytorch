@@ -205,6 +205,7 @@ at::Tensor& mm_out_tt(const at::Tensor & self, const at::Tensor & mat2, at::Tens
   uint32_t Mt = M / constants::TILE_HEIGHT;
   uint32_t Kt = K / constants::TILE_WIDTH;
   uint32_t Nt = N / constants::TILE_WIDTH;
+
   uint32_t KtNt = Kt * Nt;
   uint32_t MtKt = Mt * Kt;
   uint32_t MtNt = Mt * Nt;
@@ -233,12 +234,13 @@ at::Tensor& mm_out_tt(const at::Tensor & self, const at::Tensor & mat2, at::Tens
   const uint32_t num_output_tiles = 2;
   CBHandle cb_c = MakeCircularBufferBF16(program, all_cores, CBIndex::c_16, num_output_tiles);
 
-  std::vector<uint32_t> reader_compile_time_args = {(uint32_t)1, (uint32_t)1};
+  std::vector<uint32_t> reader_compile_time_args = {(uint32_t)2 /* bytes in bfloat16 */};
   std::vector<uint32_t> writer_compile_time_args = {(uint32_t)CBIndex::c_16, (uint32_t)1};
 
   auto reader_id = tt_metal::CreateKernel(
     program,
-    "tt_metal/programming_examples/matmul_common/kernels/dataflow/reader_bmm_8bank_output_tiles_partitioned.cpp",
+    // "tt_metal/programming_examples/matmul_common/kernels/dataflow/reader_bmm_8bank_output_tiles_partitioned.cpp",
+    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/reader_row_major_to_tiles.cpp",
     all_cores,
     tt_metal::DataMovementConfig{
         .processor = DataMovementProcessor::RISCV_1,
@@ -247,7 +249,8 @@ at::Tensor& mm_out_tt(const at::Tensor & self, const at::Tensor & mat2, at::Tens
 
   auto writer_id = tt_metal::CreateKernel(
     program,
-    "tt_metal/programming_examples/matmul_common/kernels/dataflow/writer_unary_interleaved_start_id.cpp",
+    // "tt_metal/programming_examples/matmul_common/kernels/dataflow/writer_unary_interleaved_start_id.cpp",
+    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/writer_row_major_to_tiles.cpp",
     all_cores,
     tt_metal::DataMovementConfig{
         .processor = DataMovementProcessor::RISCV_0,
