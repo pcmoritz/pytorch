@@ -200,7 +200,7 @@ at::Tensor& mm_out_tt(const at::Tensor & self, const at::Tensor & mat2, at::Tens
   int64_t M = self.size(0);
   int64_t K = self.size(1);
   AT_ASSERT(mat2.size(0) == K);
-  int64_t N = mat2.size(1);
+  uint32_t N = mat2.size(1);
 
   uint32_t Mt = M / constants::TILE_HEIGHT;
   uint32_t Kt = K / constants::TILE_WIDTH;
@@ -309,7 +309,7 @@ at::Tensor& mm_out_tt(const at::Tensor & self, const at::Tensor & mat2, at::Tens
          b->address(),
          Mt,
          Kt,
-         Nt,
+         N,
          MtKt,
          KtNt,
          1,

@@ -20,7 +20,6 @@ class TestTT(unittest.TestCase):
     """
 
     def test_tt_mm(self):
-        import ttnn
         a = torch.rand(32, 32, dtype=torch.bfloat16) - 0.5
         b = torch.rand(32, 32, dtype=torch.bfloat16) - 0.5
         c = a @ b

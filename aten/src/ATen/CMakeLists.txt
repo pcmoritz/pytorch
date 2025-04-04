@@ -120,6 +120,8 @@ file(GLOB tt_h "tt/*.h")
 file(GLOB tt_cpp "tt/*.cpp")
 file(GLOB_RECURSE native_tt_h "native/tt/*.h")
 file(GLOB_RECURSE native_tt_srcs "native/tt/*.cpp")
+file(GLOB_RECURSE native_tt_kernels "native/tt/kernels/*.cpp")
+EXCLUDE(native_tt_srcs "${native_tt_srcs}" ${native_tt_kernels})
 
 list(APPEND ATen_CPU_INCLUDE "$ENV{TT_METAL_HOME}/tt_stl/" "$ENV{TT_METAL_HOME}/tt_metal/api/" "$ENV{TT_METAL_HOME}/tt_metal/third_party/umd/device/api/" "$ENV{TT_METAL_HOME}/tt_metal/hostdevcommon/api/" "/root/reflect" "/root/tt-metal/tt_metal/third_party/tracy/public/")
 

@@ -14,14 +14,13 @@ void kernel_main() {
     uint32_t src1_addr = get_arg_val<uint32_t>(1);
     uint32_t Mt = get_arg_val<uint32_t>(2);
     uint32_t Kt = get_arg_val<uint32_t>(3);
-    uint32_t Nt = get_arg_val<uint32_t>(4);
+    uint32_t N = get_arg_val<uint32_t>(4);
     uint32_t MtKt = get_arg_val<uint32_t>(5);
     uint32_t KtNt = get_arg_val<uint32_t>(6);
 
     constexpr uint32_t datum_size_bytes = get_compile_time_arg_val(0);
 
     // For now, we only write the code to work for a single tile, will adapt it later
-    constexpr uint32_t N = 32;
     constexpr uint32_t num_output_tiles = 1;
     constexpr uint32_t ld = TILE_WIDTH;
     
@@ -42,7 +41,7 @@ void kernel_main() {
     const InterleavedAddrGen<src1_is_dram> s1 = {
         .bank_base_address = src1_addr, .page_size = datum_size_bytes * FACE_WIDTH};
 
-    constexpr uint32_t face_offset[4] = {0, FACE_WIDTH, N * FACE_HEIGHT, N * FACE_HEIGHT + FACE_WIDTH};
+    const uint32_t face_offset[4] = {0, FACE_WIDTH, N * FACE_HEIGHT, N * FACE_HEIGHT + FACE_WIDTH};
 
     for (uint32_t n = 0; n < num_output_tiles; ++n) {
       for (uint32_t kt = 0; kt < Kt; kt++) {
