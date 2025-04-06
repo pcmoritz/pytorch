@@ -206,10 +206,6 @@ at::Tensor& mm_out_tt(const at::Tensor & self, const at::Tensor & mat2, at::Tens
   uint32_t Kt = K / constants::TILE_WIDTH;
   uint32_t Nt = N / constants::TILE_WIDTH;
 
-  uint32_t KtNt = Kt * Nt;
-  uint32_t MtKt = Mt * Kt;
-  uint32_t MtNt = Mt * Nt;
-
   auto* allocator = at::tt::GetTTAllocator();
   auto* device = allocator->device();
   CommandQueue& cq = device->command_queue();
@@ -310,13 +306,8 @@ at::Tensor& mm_out_tt(const at::Tensor & self, const at::Tensor & mat2, at::Tens
          M,
          Kt,
          N,
-         MtKt,
-         KtNt,
          num_tiles_written,
-         uint32_t(0),
-         num_tiles_written,
-         num_output_tiles_per_core,
-         MtNt}); // TODO: Fix params
+        });
     tt_metal::SetRuntimeArgs(program, writer_id, core, {c->address(), num_output_tiles_per_core, num_tiles_written, (uint32_t)M, (uint32_t)N});
     num_tiles_written += num_output_tiles_per_core;
   }

@@ -21,7 +21,7 @@ class TestTT(unittest.TestCase):
 
     def test_tt_mm(self):
         a = torch.rand(64, 32, dtype=torch.bfloat16) - 0.5
-        b = torch.rand(32, 64, dtype=torch.bfloat16) - 0.5
+        b = torch.rand(32, 96, dtype=torch.bfloat16) - 0.5
         c = a @ b
         d = (a.to("tt") @ b.to("tt")).to("cpu")
         print("n", torch.linalg.norm(c - d))

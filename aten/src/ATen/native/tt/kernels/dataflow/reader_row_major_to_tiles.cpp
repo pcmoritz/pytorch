@@ -17,11 +17,9 @@ void kernel_main() {
     uint32_t Kt = get_arg_val<uint32_t>(3);
     uint32_t K = Kt * TILE_WIDTH;
     uint32_t N = get_arg_val<uint32_t>(4);
-    uint32_t MtKt = get_arg_val<uint32_t>(5);
-    uint32_t KtNt = get_arg_val<uint32_t>(6);
+    uint32_t start_id = get_arg_val<uint32_t>(5);
 
     uint32_t Nt = N / TILE_WIDTH;
-    uint32_t start_id = get_arg_val<uint32_t>(7);
     uint32_t start_id_h = start_id / Nt;
     uint32_t start_id_w = start_id % Nt;
 
@@ -29,7 +27,6 @@ void kernel_main() {
 
     // For now, we only write the code to work for a single tile, will adapt it later
     constexpr uint32_t num_output_tiles = 1;
-    constexpr uint32_t ld = TILE_WIDTH;
     
     constexpr uint32_t cb_id_in0 = 0;
     constexpr uint32_t cb_id_in1 = 1;
