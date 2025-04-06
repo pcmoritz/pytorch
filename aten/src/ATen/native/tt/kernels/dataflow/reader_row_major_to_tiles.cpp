@@ -1,3 +1,4 @@
+
 #include <stdint.h>
 #include "dataflow_api.h"
 
@@ -12,11 +13,13 @@ constexpr uint32_t FACE_WIDTH = 16;
 void kernel_main() {
     uint32_t src0_addr = get_arg_val<uint32_t>(0);
     uint32_t src1_addr = get_arg_val<uint32_t>(1);
-    uint32_t Mt = get_arg_val<uint32_t>(2);
+    uint32_t M = get_arg_val<uint32_t>(2);
     uint32_t Kt = get_arg_val<uint32_t>(3);
+    uint32_t K = Kt * TILE_WIDTH;
     uint32_t N = get_arg_val<uint32_t>(4);
     uint32_t MtKt = get_arg_val<uint32_t>(5);
     uint32_t KtNt = get_arg_val<uint32_t>(6);
+    uint32_t start_id = get_arg_val<uint32_t>(7);
 
     constexpr uint32_t datum_size_bytes = get_compile_time_arg_val(0);
 
@@ -41,18 +44,18 @@ void kernel_main() {
     const InterleavedAddrGen<src1_is_dram> s1 = {
         .bank_base_address = src1_addr, .page_size = datum_size_bytes * FACE_WIDTH};
 
-    const uint32_t face_offset[4] = {0, FACE_WIDTH, N * FACE_HEIGHT, N * FACE_HEIGHT + FACE_WIDTH};
+    const uint32_t a_face_offset[4] = {0, FACE_WIDTH, K * FACE_HEIGHT, K * FACE_HEIGHT + FACE_WIDTH};
+    const uint32_t b_face_offset[4] = {0, FACE_WIDTH, N * FACE_HEIGHT, N * FACE_HEIGHT + FACE_WIDTH};
 
     for (uint32_t n = 0; n < num_output_tiles; ++n) {
       for (uint32_t kt = 0; kt < Kt; kt++) {
 	// Read A tile
 	cb_reserve_back(cb_id_in0, onetile);
 	uint32_t l1_write_addr_in0 = get_write_ptr(cb_id_in0);
-#pragma GCC unroll 4
 	for (uint32_t f = 0; f < 4; ++f) {
 #pragma GCC unroll FACE_HEIGHT
 	  for (uint32_t h = 0; h < FACE_HEIGHT; ++h) {
-	    uint64_t offset = face_offset[f] + h * ld;
+	    uint64_t offset = a_face_offset[f] + M * h;
 	    uint64_t s0_noc_addr = get_noc_addr(offset / FACE_WIDTH, s0);
 	    noc_async_read(s0_noc_addr,
 			   l1_write_addr_in0,
@@ -66,11 +69,10 @@ void kernel_main() {
 	// Read B tile
 	cb_reserve_back(cb_id_in1, onetile);
 	uint32_t l1_write_addr_in1 = get_write_ptr(cb_id_in1);
-#pragma GCC unroll 4
 	for (uint32_t f = 0; f < 4; ++f) {
 #pragma GCC unroll FACE_HEIGHT
 	  for (uint32_t h = 0; h < FACE_HEIGHT; ++h) {
-	    uint64_t offset = face_offset[f] + h * ld;
+	    uint32_t offset = start_id * TILE_WIDTH + b_face_offset[f] + N * h;
 	    uint64_t s1_noc_addr = get_noc_addr(offset / FACE_WIDTH, s1);
 	    noc_async_read(s1_noc_addr,
 			   l1_write_addr_in1,

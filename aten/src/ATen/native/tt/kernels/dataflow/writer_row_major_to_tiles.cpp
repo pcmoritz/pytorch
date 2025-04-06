@@ -12,11 +12,12 @@ void kernel_main() {
     uint32_t dst_addr = get_arg_val<uint32_t>(0);
     uint32_t num_tiles = get_arg_val<uint32_t>(1);
     uint32_t start_id = get_arg_val<uint32_t>(2);
+    uint32_t M = get_arg_val<uint32_t>(3);
+    uint32_t N = get_arg_val<uint32_t>(4);
 
     constexpr uint32_t cb_id_out = get_compile_time_arg_val(0);
     constexpr bool dst_is_dram = get_compile_time_arg_val(1) == 1;
 
-    constexpr uint32_t N = 32;
     constexpr uint32_t datum_size_bytes = 2;
     constexpr uint32_t ld = TILE_WIDTH;
 
@@ -33,8 +34,7 @@ void kernel_main() {
     const InterleavedAddrGen<dst_is_dram> s = {
 	.bank_base_address = dst_addr, .page_size = datum_size_bytes * FACE_WIDTH};
 
-    constexpr uint32_t face_offset[4] = {0, FACE_WIDTH, N * FACE_HEIGHT, N * FACE_HEIGHT + FACE_WIDTH};
-    constexpr uint32_t l1_face_offset[4] = {0, FACE_WIDTH, TILE_WIDTH * FACE_HEIGHT, TILE_WIDTH * FACE_HEIGHT + FACE_WIDTH};
+    const uint32_t face_offset[4] = {0, FACE_WIDTH, N * FACE_HEIGHT, N * FACE_HEIGHT + FACE_WIDTH};
 
 #ifdef BACKWARDS
     uint32_t end_id = start_id - num_tiles;
@@ -50,7 +50,7 @@ void kernel_main() {
 	for (uint32_t f = 0; f < 4; ++f) {
 #pragma GCC unroll FACE_HEIGHT
           for (uint32_t h = 0; h < FACE_HEIGHT; ++h) {
-            uint64_t offset = face_offset[f] + h * ld;
+            uint64_t offset = start_id * TILE_WIDTH + face_offset[f] + h * N;
             uint64_t s_noc_addr = get_noc_addr(offset / FACE_WIDTH, s);
 
             noc_async_write(l1_read_addr,

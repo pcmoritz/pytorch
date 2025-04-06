@@ -197,7 +197,7 @@ Tensor relu_tt(const Tensor& self) {
 
 // matmul -- this is a very naive but also simple implementation and not optimized yet at all
 at::Tensor& mm_out_tt(const at::Tensor & self, const at::Tensor & mat2, at::Tensor &result) {
-  int64_t M = self.size(0);
+  uint32_t M = self.size(0);
   int64_t K = self.size(1);
   AT_ASSERT(mat2.size(0) == K);
   uint32_t N = mat2.size(1);
@@ -307,17 +307,17 @@ at::Tensor& mm_out_tt(const at::Tensor & self, const at::Tensor & mat2, at::Tens
         core,
         {a->address(),
          b->address(),
-         Mt,
+         M,
          Kt,
          N,
          MtKt,
          KtNt,
-         1,
+         num_tiles_written,
          uint32_t(0),
          num_tiles_written,
          num_output_tiles_per_core,
-         MtNt});
-    tt_metal::SetRuntimeArgs(program, writer_id, core, {c->address(), num_output_tiles_per_core, num_tiles_written});
+         MtNt}); // TODO: Fix params
+    tt_metal::SetRuntimeArgs(program, writer_id, core, {c->address(), num_output_tiles_per_core, num_tiles_written, (uint32_t)M, (uint32_t)N});
     num_tiles_written += num_output_tiles_per_core;
   }
 
