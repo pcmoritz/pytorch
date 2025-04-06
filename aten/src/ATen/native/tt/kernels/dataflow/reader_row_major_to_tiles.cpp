@@ -19,7 +19,11 @@ void kernel_main() {
     uint32_t N = get_arg_val<uint32_t>(4);
     uint32_t MtKt = get_arg_val<uint32_t>(5);
     uint32_t KtNt = get_arg_val<uint32_t>(6);
+
+    uint32_t Nt = N / TILE_WIDTH;
     uint32_t start_id = get_arg_val<uint32_t>(7);
+    uint32_t start_id_h = start_id / Nt;
+    uint32_t start_id_w = start_id % Nt;
 
     constexpr uint32_t datum_size_bytes = get_compile_time_arg_val(0);
 
@@ -55,7 +59,7 @@ void kernel_main() {
 	for (uint32_t f = 0; f < 4; ++f) {
 #pragma GCC unroll FACE_HEIGHT
 	  for (uint32_t h = 0; h < FACE_HEIGHT; ++h) {
-	    uint64_t offset = a_face_offset[f] + M * h;
+	    uint64_t offset = start_id_h * TILE_HEIGHT * K + a_face_offset[f] + K * h;
 	    uint64_t s0_noc_addr = get_noc_addr(offset / FACE_WIDTH, s0);
 	    noc_async_read(s0_noc_addr,
 			   l1_write_addr_in0,
@@ -72,7 +76,7 @@ void kernel_main() {
 	for (uint32_t f = 0; f < 4; ++f) {
 #pragma GCC unroll FACE_HEIGHT
 	  for (uint32_t h = 0; h < FACE_HEIGHT; ++h) {
-	    uint32_t offset = start_id * TILE_WIDTH + b_face_offset[f] + N * h;
+	    uint32_t offset = start_id_w * TILE_WIDTH * K + b_face_offset[f] + K * h;
 	    uint64_t s1_noc_addr = get_noc_addr(offset / FACE_WIDTH, s1);
 	    noc_async_read(s1_noc_addr,
 			   l1_write_addr_in1,

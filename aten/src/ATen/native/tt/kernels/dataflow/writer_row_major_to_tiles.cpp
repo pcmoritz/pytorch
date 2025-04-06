@@ -50,7 +50,7 @@ void kernel_main() {
 	for (uint32_t f = 0; f < 4; ++f) {
 #pragma GCC unroll FACE_HEIGHT
           for (uint32_t h = 0; h < FACE_HEIGHT; ++h) {
-            uint64_t offset = start_id * TILE_WIDTH + face_offset[f] + h * N;
+            uint64_t offset = start_id * TILE_HEIGHT * N + face_offset[f] + h * N;
             uint64_t s_noc_addr = get_noc_addr(offset / FACE_WIDTH, s);
 
             noc_async_write(l1_read_addr,
