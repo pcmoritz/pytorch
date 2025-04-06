@@ -15,6 +15,10 @@ void kernel_main() {
     uint32_t M = get_arg_val<uint32_t>(3);
     uint32_t N = get_arg_val<uint32_t>(4);
 
+    uint32_t Nt = N / TILE_WIDTH;
+    uint32_t start_id_h = start_id / Nt;
+    uint32_t start_id_w = start_id % Nt;
+
     constexpr uint32_t cb_id_out = get_compile_time_arg_val(0);
     constexpr bool dst_is_dram = get_compile_time_arg_val(1) == 1;
 
@@ -50,7 +54,7 @@ void kernel_main() {
 	for (uint32_t f = 0; f < 4; ++f) {
 #pragma GCC unroll FACE_HEIGHT
           for (uint32_t h = 0; h < FACE_HEIGHT; ++h) {
-            uint64_t offset = start_id * TILE_HEIGHT * N + face_offset[f] + h * N;
+            uint64_t offset = start_id_w * TILE_WIDTH + start_id_h * TILE_HEIGHT * N + face_offset[f] + h * N;
             uint64_t s_noc_addr = get_noc_addr(offset / FACE_WIDTH, s);
 
             noc_async_write(l1_read_addr,
