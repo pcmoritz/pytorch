@@ -235,8 +235,8 @@ at::Tensor& mm_out_tt(const at::Tensor & self, const at::Tensor & mat2, at::Tens
 
   auto reader_id = tt_metal::CreateKernel(
     program,
-    // "tt_metal/programming_examples/matmul_common/kernels/dataflow/reader_bmm_8bank_output_tiles_partitioned.cpp",
-    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/reader_row_major_to_tiles.cpp",
+    // TODO: The path is currently hard-coded, figure out how to fix it
+    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/matmul_reader_row_major_to_tiles.cpp",
     all_cores,
     tt_metal::DataMovementConfig{
         .processor = DataMovementProcessor::RISCV_1,
@@ -245,8 +245,8 @@ at::Tensor& mm_out_tt(const at::Tensor & self, const at::Tensor & mat2, at::Tens
 
   auto writer_id = tt_metal::CreateKernel(
     program,
-    // "tt_metal/programming_examples/matmul_common/kernels/dataflow/writer_unary_interleaved_start_id.cpp",
-    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/writer_row_major_to_tiles.cpp",
+    // TODO: The path is currently hard-coded, figure out how to fix it
+    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/matmul_writer_row_major_to_tiles.cpp",
     all_cores,
     tt_metal::DataMovementConfig{
         .processor = DataMovementProcessor::RISCV_0,
