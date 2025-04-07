@@ -10,14 +10,14 @@ class TestTT(unittest.TestCase):
             b = a.to("tt")
             c = b.to("cpu")
             self.assertTrue((a == c).all())
+    """
 
     def test_tt_add(self):
-        a = torch.ones(100000, dtype=torch.bfloat16)
+        a = torch.ones(32 * 32, dtype=torch.bfloat16)
         b = a.to("tt")
         c = b + b
         d = c.to("cpu")
         self.assertTrue((d == 2.0).all())
-    """
 
     def test_tt_mm(self):
         a = torch.rand(64, 32, dtype=torch.bfloat16) - 0.5

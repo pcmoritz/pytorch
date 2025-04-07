@@ -6,12 +6,20 @@
 #include "debug/dprint.h"
 #include <cstdint>
 
+constexpr uint32_t TILE_HEIGHT = 32;
+constexpr uint32_t TILE_WIDTH = 32;
+
+constexpr uint32_t FACE_HEIGHT = 16;
+constexpr uint32_t FACE_WIDTH = 16;
+
 void kernel_main() {
     // Read parameters from the kernel arguments
     uint32_t a_addr = get_arg_val<uint32_t>(0);
     uint32_t b_addr = get_arg_val<uint32_t>(1);
     uint32_t n_tiles = get_arg_val<uint32_t>(2);
     uint32_t start_tile_id = get_arg_val<uint32_t>(3);
+
+    constexpr uint32_t datum_size_bytes = 2;
 
     // The circular buffers to read the tiles into
     constexpr uint32_t cb_in0 = get_compile_time_arg_val(0);
@@ -21,22 +29,12 @@ void kernel_main() {
     // circular buffers are created with the same tile size as the DRAM
     // buffers. (Whis is most of the cases)
     const uint32_t tile_size_bytes = get_tile_size(cb_in0);
-    // DPRINT_DATA0(DPRINT << "tile_size_bytes " <<  tile_size_bytes << ENDL());
-    //  Create address generators for the input buffers. This is much faster
-    //  then doing plain DRAM reads.
-    //  Setting the page size to be tile_size_bytes works because we set it up
-    //  explicitly in host code. This is usually a good idea as it makes coding
-    //  easy. But may not be the most efficient way to do it in all cases.
-    const InterleavedAddrGenFast<true> a = {
-        .bank_base_address = a_addr,           // The base address of the buffer
-        .page_size = tile_size_bytes,          // The size of a buffer page
-        .data_format = DataFormat::Float16_b,  // The data format of the buffer
-    };
-    const InterleavedAddrGenFast<true> b = {
-        .bank_base_address = b_addr,
-        .page_size = tile_size_bytes,
-        .data_format = DataFormat::Float16_b,
-    };
+
+    const InterleavedAddrGen<true> a = {
+        .bank_base_address = a_addr, .page_size = datum_size_bytes * FACE_WIDTH};
+
+    const InterleavedAddrGen<true> b = {
+        .bank_base_address = b_addr, .page_size = datum_size_bytes * FACE_WIDTH};
 
     // Calculate the range of tiles this core should process
     const uint32_t end_tile_id = start_tile_id + n_tiles;
@@ -53,16 +51,15 @@ void kernel_main() {
                  // Deciding how large the buffer should be is a tradeoff.
         uint32_t cb_in0_addr = get_write_ptr(cb_in0);
         uint32_t cb_in1_addr = get_write_ptr(cb_in1);
-        noc_async_read_tile(i, a, cb_in0_addr);  // read the tile into the circular buffer
-        noc_async_read_tile(i, b, cb_in1_addr);  // We can overlap async reads and writes
-                                                 // to reduce the data movement overhead.
 
-        // NOTE: Since circular buffers are backed by SRAM, we can actually
-        // access them by casting the address to a pointer. This is not helpful
-        // in most cases as the CPU is quite slow compared to the tensor/simd
-        // engines. But useful for debugging. uint16_t* ptr =
-        // (uint16_t*)cb_in0_addr; DPRINT << "cb_in0_addr: " << ptr << " " <<
-        // *ptr;
+	for (uint32_t h = 0; h < TILE_HEIGHT * 2; ++h) {
+	  uint64_t a_noc_addr = get_noc_addr(i * TILE_HEIGHT * 2 + h, a);
+	  noc_async_read(a_noc_addr, cb_in0_addr, FACE_WIDTH * datum_size_bytes);
+	  cb_in0_addr += FACE_WIDTH * datum_size_bytes;
+	  uint64_t b_noc_addr = get_noc_addr(i * TILE_HEIGHT * 2 + h, b);
+	  noc_async_read(b_noc_addr, cb_in1_addr, FACE_WIDTH * datum_size_bytes);
+	  cb_in1_addr += FACE_WIDTH * datum_size_bytes;
+	}
 
         noc_async_read_barrier();  // Wait until tile reads are done
         cb_push_back(cb_in0, 1);
