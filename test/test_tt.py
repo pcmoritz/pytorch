@@ -17,6 +17,12 @@ class TestTT(unittest.TestCase):
         d = c.to("cpu")
         self.assertTrue((d == 2.0).all())
 
+    def test_tt_relu(self):
+        a = torch.ones(32 * 32, dtype=torch.bfloat16)
+        b = torch.relu(a)
+        c = torch.relu(a.to("tt"))
+        self.assertTrue(torch.allclose(b, c.to("cpu"), rtol=1e-2))
+
     def test_tt_mm(self):
         a = torch.rand(64, 32, dtype=torch.bfloat16) - 0.5
         b = torch.rand(32, 96, dtype=torch.bfloat16) - 0.5

@@ -56,7 +56,7 @@ at::Tensor & add_out_tt(const at::Tensor & self, const at::Tensor & other, const
   auto reader = CreateKernel(
       program,
       // TODO: The path is currently hard-coded, figure out how to fix it
-      "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/eltwise_reader_row_major_to_tiles.cpp",
+      "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/binary_eltwise_reader_row_major_to_tiles.cpp",
       all_device_cores,
       DataMovementConfig{
           .processor = DataMovementProcessor::RISCV_0,
@@ -73,8 +73,7 @@ at::Tensor & add_out_tt(const at::Tensor & self, const at::Tensor & other, const
           .compile_args = writer_compile_time_args});
   auto compute = CreateKernel(
       program,
-      "tt_metal/programming_examples/vecadd_multi_core/"
-      "kernels/add_multi_core.cpp",
+      "tt_metal/programming_examples/vecadd_multi_core/kernels/add_multi_core.cpp",
       all_device_cores,
       ComputeConfig{.math_approx_mode = false, .compile_args = compute_compile_time_args, .defines = {}});
 
@@ -140,8 +139,8 @@ Tensor relu_tt(const Tensor& self) {
 
   auto reader = CreateKernel(
       program,
-      "tt_metal/programming_examples/vecadd_multi_core/kernels/"
-      "interleaved_tile_read_multi_core_unary.cpp",
+      // TODO: The path is currently hard-coded, figure out how to fix it
+      "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/unary_eltwise_reader_row_major_to_tiles.cpp",
       all_device_cores,
       DataMovementConfig{
           .processor = DataMovementProcessor::RISCV_0,
@@ -149,8 +148,8 @@ Tensor relu_tt(const Tensor& self) {
           .compile_args = reader_compile_time_args});
   auto writer = CreateKernel(
       program,
-      "tt_metal/programming_examples/vecadd_multi_core/kernels/"
-      "tile_write_multi_core.cpp",
+      // TODO: The path is currently hard-coded, figure out how to fix it
+      "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/eltwise_writer_row_major_to_tiles.cpp",
       all_device_cores,
       DataMovementConfig{
           .processor = DataMovementProcessor::RISCV_1,
@@ -158,8 +157,8 @@ Tensor relu_tt(const Tensor& self) {
 	  .compile_args = writer_compile_time_args});
     auto compute = CreateKernel(
       program,
-      "tt_metal/programming_examples/vecadd_multi_core/"
-      "kernels/sfpu_multi_core.cpp",
+      // TODO: The path is currently hard-coded, figure out how to fix it
+      "/root/pytorch/aten/src/ATen/native/tt/kernels/compute/eltwise_sfpu_multi_core.cpp",
       all_device_cores,
       ComputeConfig{.math_approx_mode = false, .compile_args = compute_compile_time_args, .defines = {
          {"SFPU_OP_RELU_FAMILY_INCLUDE", "1"}, {"SFPU_OP_CHAIN_0", "relu_tile_init(); relu_tile(0);"}}});
