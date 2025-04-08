@@ -1,4 +1,3 @@
-
 cmake_minimum_required(VERSION 3.18 FATAL_ERROR)
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
 
@@ -120,10 +119,12 @@ file(GLOB tt_h "tt/*.h")
 file(GLOB tt_cpp "tt/*.cpp")
 file(GLOB_RECURSE native_tt_h "native/tt/*.h")
 file(GLOB_RECURSE native_tt_srcs "native/tt/*.cpp")
+# We exclude the kernels since they will be compiled at runtime
+# in a just-in-time manner
 file(GLOB_RECURSE native_tt_kernels "native/tt/kernels/*.cpp")
 EXCLUDE(native_tt_srcs "${native_tt_srcs}" ${native_tt_kernels})
 
-list(APPEND ATen_CPU_INCLUDE "$ENV{TT_METAL_HOME}/tt_stl/" "$ENV{TT_METAL_HOME}/tt_metal/api/" "$ENV{TT_METAL_HOME}/tt_metal/third_party/umd/device/api/" "$ENV{TT_METAL_HOME}/tt_metal/hostdevcommon/api/" "/root/reflect" "/root/tt-metal/tt_metal/third_party/tracy/public/")
+list(APPEND ATen_CPU_INCLUDE "$ENV{TT_METAL_HOME}/tt_stl/" "$ENV{TT_METAL_HOME}/tt_metal/api/" "$ENV{TT_METAL_HOME}/tt_metal/third_party/umd/device/api/" "$ENV{TT_METAL_HOME}/tt_metal/hostdevcommon/api/" "/root/reflect" "$ENV{TT_METAL_HOME}/tt_metal/third_party/tracy/public/")
 
 file(GLOB native_sparse_cpp "native/sparse/*.cpp")
 file(GLOB native_quantized_cpp
