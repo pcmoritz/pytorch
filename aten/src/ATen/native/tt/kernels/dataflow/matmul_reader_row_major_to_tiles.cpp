@@ -1,4 +1,3 @@
-
 #include <stdint.h>
 #include "dataflow_api.h"
 
@@ -49,14 +48,14 @@ void kernel_main() {
     const uint32_t b_face_offset[4] = {0, FACE_WIDTH, N * FACE_HEIGHT, N * FACE_HEIGHT + FACE_WIDTH};
 
     for (uint32_t n = 0; n < num_output_tiles; ++n) {
-      for (uint32_t kt = 0; kt < Kt; kt++) {
+      for (uint32_t kt = 0; kt < Kt; ++kt) {
 	// Read A tile
 	cb_reserve_back(cb_id_in0, onetile);
 	uint32_t l1_write_addr_in0 = get_write_ptr(cb_id_in0);
 	for (uint32_t f = 0; f < 4; ++f) {
 #pragma GCC unroll FACE_HEIGHT
 	  for (uint32_t h = 0; h < FACE_HEIGHT; ++h) {
-	    uint64_t offset = start_id_h * TILE_HEIGHT * K + a_face_offset[f] + K * h;
+	    uint64_t offset = start_id_h * TILE_HEIGHT * K + a_face_offset[f] + kt * TILE_WIDTH + K * h;
 	    uint64_t s0_noc_addr = get_noc_addr(offset / FACE_WIDTH, s0);
 	    noc_async_read(s0_noc_addr,
 			   l1_write_addr_in0,
@@ -73,7 +72,7 @@ void kernel_main() {
 	for (uint32_t f = 0; f < 4; ++f) {
 #pragma GCC unroll FACE_HEIGHT
 	  for (uint32_t h = 0; h < FACE_HEIGHT; ++h) {
-	    uint32_t offset = start_id_w * TILE_WIDTH + b_face_offset[f] + N * h;
+	    uint32_t offset = start_id_w * TILE_WIDTH + b_face_offset[f] + N * h + kt * TILE_HEIGHT * N;
 	    uint64_t s1_noc_addr = get_noc_addr(offset / FACE_WIDTH, s1);
 	    noc_async_read(s1_noc_addr,
 			   l1_write_addr_in1,
