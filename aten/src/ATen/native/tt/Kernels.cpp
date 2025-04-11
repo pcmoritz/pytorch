@@ -1,6 +1,7 @@
 #include <ATen/ops/add_native.h>
 #include <ATen/ops/relu_native.h>
 #include <ATen/ops/mm_native.h>
+#include <ATen/ops/addmm_native.h>
 #include <ATen/tt/TTDevice.h>
 
 #include <tt-metalium/host_api.hpp>
@@ -320,6 +321,19 @@ at::Tensor& mm_out_tt(const at::Tensor & self, const at::Tensor & mat2, at::Tens
   Finish(cq);
 
   return result;
+}
+
+at::Tensor & addmm_out_tt(const at::Tensor & self, const at::Tensor & mat1, const at::Tensor & mat2, const at::Scalar & beta, const at::Scalar & alpha, at::Tensor & out) {
+  TORCH_CHECK(mat1.dim() == 2 && mat2.dim() == 2, "tensors must be 2-D");
+  TORCH_CHECK(
+    mat1.dtype() == mat2.dtype(),
+    "expected mat1 and mat2 to have the same dtype, but got: ", mat1.dtype(), " != ", mat2.dtype()
+  );
+  // We first start with the very naive implementation here
+  // TODO: handle alpha, beta != 1.0
+  mm_out_tt(mat1, mat2, out);
+  add_out_tt(out, self, beta, out);
+  return out;
 }
 
 Tensor& uniform_tt_(Tensor& self, double from, double to, std::optional<Generator> gen) {

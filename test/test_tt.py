@@ -50,11 +50,20 @@ class TestTT(unittest.TestCase):
         print("n", torch.linalg.norm(c - d))
         self.assertTrue(torch.allclose(c, d.to("cpu"), rtol=1e-2, atol=1e-1))
 
+    def test_tt_addmm(self):
+        M = torch.randn(64, 128, dtype=torch.bfloat16)
+        mat1 = torch.randn(64, 32, dtype=torch.bfloat16)
+        mat2 = torch.randn(32, 128, dtype=torch.bfloat16)
+        a = torch.addmm(M, mat1, mat2)
+        b = torch.addmm(M.to("tt"), mat1.to("tt"), mat2.to("tt")).to("cpu")
+        self.assertTrue(torch.allclose(a, b, rtol=1e-2, atol=1e-1))
+
     def test_tt_network(self):
         model = NeuralNetwork().to("tt")
         X = torch.rand(1, 28, 28, dtype=torch.bfloat16, device="tt")
         print(X.cpu())
-        # logits = model(X)
+        logits = model.bfloat16().to("tt")(X)
+        print(logits.cpu())
 
 if __name__ == "__main__":
     unittest.main()
