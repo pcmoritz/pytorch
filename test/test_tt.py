@@ -52,7 +52,7 @@ class TestTT(unittest.TestCase):
 
     def test_tt_network(self):
         model = NeuralNetwork().to("tt")
-        X = torch.rand(1, 28, 28, device="tt")
+        X = torch.rand(1, 28, 28, dtype=torch.bfloat16, device="tt")
         print(X.cpu())
         # logits = model(X)
 

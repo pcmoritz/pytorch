@@ -351,7 +351,8 @@ Tensor& uniform_tt_(Tensor& self, double from, double to, std::optional<Generato
 
   auto writer = CreateKernel(
     program,
-    "ttnn/cpp/ttnn/operations/uniform/device/kernels/writer_uniform.cpp",
+    // TODO: The path is currently hard-coded, figure out how to fix it
+    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/writer_uniform_row_major.cpp",
     all_device_cores,
     WriterDataMovementConfig(writer_compile_time_args, writer_defines));
 
@@ -390,7 +391,7 @@ Tensor& uniform_tt_(Tensor& self, double from, double to, std::optional<Generato
     f2u_to.f = static_cast<float>(to) - eps;  // -eps make sure that generated number is < operation_attributes.to
 
     // Each core has its own seed to increase the number of generated random numbers
-    uint32_t seed = gen->current_seed() + i;
+    uint32_t seed = 42 + i;
 
     std::vector<uint32_t> compute_runtime_args = {seed, f2u_from.u, f2u_to.u, tile_offset, units_per_core};
     SetRuntimeArgs(program, compute, core, compute_runtime_args);
@@ -400,6 +401,11 @@ Tensor& uniform_tt_(Tensor& self, double from, double to, std::optional<Generato
 
     tile_offset += units_per_core;
   }
+
+  EnqueueProgram(cq, program, true);
+
+  Finish(cq);
+
   return self;
 }
 
