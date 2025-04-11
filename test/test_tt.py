@@ -1,5 +1,24 @@
 import torch
+from torch import nn
 import unittest
+
+class NeuralNetwork(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.flatten = nn.Flatten()
+        self.linear_relu_stack = nn.Sequential(
+            nn.Linear(28*28, 512),
+            nn.ReLU(),
+            nn.Linear(512, 512),
+            nn.ReLU(),
+            nn.Linear(512, 10),
+        )
+
+    def forward(self, x):
+        x = self.flatten(x)
+        logits = self.linear_relu_stack(x)
+        return logits
+
 
 class TestTT(unittest.TestCase):
 
@@ -30,6 +49,12 @@ class TestTT(unittest.TestCase):
         d = (a.to("tt") @ b.to("tt")).to("cpu")
         print("n", torch.linalg.norm(c - d))
         self.assertTrue(torch.allclose(c, d.to("cpu"), rtol=1e-2, atol=1e-1))
+
+    def test_tt_network(self):
+        model = NeuralNetwork().to("tt")
+        X = torch.rand(1, 28, 28, device="tt")
+        print(X.cpu())
+        # logits = model(X)
 
 if __name__ == "__main__":
     unittest.main()

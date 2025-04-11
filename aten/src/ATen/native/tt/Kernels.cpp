@@ -26,6 +26,11 @@ static CBHandle MakeCircularBufferBF16(Program& program, const CoreSpec& core, C
   return MakeCircularBuffer(program, core, cb, n_tiles * tile_size, tile_size, DataFormat::Float16_b);
 }
 
+static CBHandle MakeCircularBufferF32(Program& program, const CoreSpec& core, CBIndex cb, uint32_t n_tiles) {
+  constexpr uint32_t tile_size = sizeof(float) * constants::TILE_HW;
+  return MakeCircularBuffer(program, core, cb, n_tiles * tile_size, tile_size, DataFormat::Float32);
+}
+
 at::Tensor & add_out_tt(const at::Tensor & self, const at::Tensor & other, const at::Scalar & alpha, at::Tensor & out) {
   auto* allocator = at::tt::GetTTAllocator();
   auto* device = allocator->device();
@@ -315,6 +320,87 @@ at::Tensor& mm_out_tt(const at::Tensor & self, const at::Tensor & mat2, at::Tens
   Finish(cq);
 
   return result;
+}
+
+Tensor& uniform_tt_(Tensor& self, double from, double to, std::optional<Generator> gen) {
+  auto* allocator = at::tt::GetTTAllocator();
+  auto* device = allocator->device();
+  CommandQueue& cq = device->command_queue();
+  Program program = CreateProgram();
+
+  const uint32_t n_tiles = (self.numel() + ::tt::constants::TILE_HW - 1) / ::tt::constants::TILE_HW;
+  auto a = allocator->get_buffer(self.data_ptr());
+
+  auto grid_size = device->compute_with_storage_grid_size();
+  uint32_t num_cores_x = grid_size.x;
+  uint32_t num_cores_y = grid_size.y;
+  uint32_t num_cores_total = num_cores_x * num_cores_y;
+  auto all_device_cores = CoreRange({0, 0}, {num_cores_x - 1, num_cores_y - 1});
+
+  constexpr auto intermed_cb_id = CBIndex::c_24;
+  constexpr uint32_t intermed_num_tiles = 2;
+  CBHandle cb_intermed = MakeCircularBufferF32(program, all_device_cores, intermed_cb_id, intermed_num_tiles);
+  constexpr auto dst_cb_id = CBIndex::c_0;
+  constexpr uint32_t in_out_num_tiles = 1;
+  CBHandle cb_output = MakeCircularBufferBF16(program, all_device_cores, dst_cb_id, in_out_num_tiles);
+
+  const uint32_t output_is_dram = 1;
+  const std::vector<uint32_t> writer_compile_time_args{intermed_cb_id, dst_cb_id, output_is_dram};
+  std::map<string, string> writer_defines = {{"OUTPUT_DTYPE_BFLOAT16", "1"}};
+  const std::vector<uint32_t> compute_compile_time_args{intermed_cb_id};
+
+  auto writer = CreateKernel(
+    program,
+    "ttnn/cpp/ttnn/operations/uniform/device/kernels/writer_uniform.cpp",
+    all_device_cores,
+    WriterDataMovementConfig(writer_compile_time_args, writer_defines));
+
+  auto compute = CreateKernel(
+    program,
+    "ttnn/cpp/ttnn/operations/uniform/device/kernels/compute_uniform.cpp",
+    all_device_cores,
+    ComputeConfig{
+      .fp32_dest_acc_en = true,  // if fp32_dest_acc_en set to false a precision error may occur which makes
+                                 // generated number out of range [from, to)
+      .math_approx_mode = false, .compile_args = compute_compile_time_args, .defines = {}
+    });
+
+  auto [num_cores, all_cores, core_group_1, core_group_2, units_per_core_group_1, units_per_core_group_2] =
+    split_work_to_cores(grid_size, n_tiles);
+  auto cores = grid_to_cores(num_cores, num_cores_x, num_cores_y);
+
+  uint32_t tile_offset = 0;
+  for (int i = 0; i < cores.size(); ++i) {
+    const auto& core = cores[i];
+    uint32_t units_per_core;
+    if (core_group_1.contains(core)) {
+        units_per_core = units_per_core_group_1;
+    } else if (core_group_2.contains(core)) {
+        units_per_core = units_per_core_group_2;
+    } else {
+      AT_ASSERT(false, "Core not in specified core ranges");
+    }
+
+    const float eps = 1e-6;
+    union {
+        float f;
+        uint32_t u;
+    } f2u_from, f2u_to;
+    f2u_from.f = static_cast<float>(from);
+    f2u_to.f = static_cast<float>(to) - eps;  // -eps make sure that generated number is < operation_attributes.to
+
+    // Each core has its own seed to increase the number of generated random numbers
+    uint32_t seed = gen->current_seed() + i;
+
+    std::vector<uint32_t> compute_runtime_args = {seed, f2u_from.u, f2u_to.u, tile_offset, units_per_core};
+    SetRuntimeArgs(program, compute, core, compute_runtime_args);
+
+    std::vector<uint32_t> writer_runtime_args = {a->address(), tile_offset, units_per_core};
+    SetRuntimeArgs(program, writer, core, writer_runtime_args);
+
+    tile_offset += units_per_core;
+  }
+  return self;
 }
 
 // static void sum_kernel_tt(TensorIterator& iter) {

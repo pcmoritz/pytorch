@@ -8752,6 +8752,7 @@
   dispatch:
     CPU, CUDA: uniform_
     MPS: uniform_mps_
+    TT: uniform_tt_
     Meta: uniform_meta_
   autogen: uniform, uniform.out
 
