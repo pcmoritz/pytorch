@@ -23,6 +23,7 @@ void kernel_main() {
     uint32_t start_id_w = start_id % Nt;
 
     constexpr uint32_t datum_size_bytes = get_compile_time_arg_val(0);
+    constexpr uint32_t is_b_transposed = get_compile_time_arg_val(1);
 
     // For now, we only write the code to work for a single tile, will adapt it later
     constexpr uint32_t num_output_tiles = 1;
@@ -72,7 +73,12 @@ void kernel_main() {
 	for (uint32_t f = 0; f < 4; ++f) {
 #pragma GCC unroll FACE_HEIGHT
 	  for (uint32_t h = 0; h < FACE_HEIGHT; ++h) {
-	    uint32_t offset = start_id_w * TILE_WIDTH + b_face_offset[f] + N * h + kt * TILE_HEIGHT * N;
+	    uint32_t offset;
+	    if constexpr (is_b_transposed) {
+	      offset = start_id_w * TILE_HEIGHT * K + a_face_offset[f] + kt * TILE_WIDTH + K * h;
+	    } else {
+	      offset = start_id_w * TILE_WIDTH + b_face_offset[f] + N * h + kt * TILE_HEIGHT * N;
+	    }
 	    uint64_t s1_noc_addr = get_noc_addr(offset / FACE_WIDTH, s1);
 	    noc_async_read(s1_noc_addr,
 			   l1_write_addr_in1,

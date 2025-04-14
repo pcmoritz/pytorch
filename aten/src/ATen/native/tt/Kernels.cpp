@@ -143,6 +143,8 @@ Tensor relu_tt(const Tensor& self) {
   std::vector<uint32_t> writer_compile_time_args = {(uint32_t)CBIndex::c_1};
   std::vector<uint32_t> compute_compile_time_args = {(uint32_t)CBIndex::c_0, (uint32_t)CBIndex::c_1};
 
+  MathFidelity math_fidelity = MathFidelity::HiFi4;
+
   auto reader = CreateKernel(
       program,
       // TODO: The path is currently hard-coded, figure out how to fix it
@@ -166,7 +168,7 @@ Tensor relu_tt(const Tensor& self) {
       // TODO: The path is currently hard-coded, figure out how to fix it
       "/root/pytorch/aten/src/ATen/native/tt/kernels/compute/eltwise_sfpu_multi_core.cpp",
       all_device_cores,
-      ComputeConfig{.math_approx_mode = false, .compile_args = compute_compile_time_args, .defines = {
+      ComputeConfig{.math_fidelity = math_fidelity, .math_approx_mode = false, .compile_args = compute_compile_time_args, .defines = {
          {"SFPU_OP_RELU_FAMILY_INCLUDE", "1"}, {"SFPU_OP_CHAIN_0", "relu_tile_init(); relu_tile(0);"}}});
 
   constexpr bool row_major = true;
@@ -235,7 +237,7 @@ at::Tensor& mm_out_tt(const at::Tensor & self, const at::Tensor & mat2, at::Tens
   const uint32_t num_output_tiles = 2;
   CBHandle cb_c = MakeCircularBufferBF16(program, all_cores, CBIndex::c_16, num_output_tiles);
 
-  std::vector<uint32_t> reader_compile_time_args = {(uint32_t)2 /* bytes in bfloat16 */};
+  std::vector<uint32_t> reader_compile_time_args = {(uint32_t)2 /* bytes in bfloat16 */, (uint32_t) !mat2.is_contiguous() /* whether b is transposed */};
   std::vector<uint32_t> writer_compile_time_args = {(uint32_t)CBIndex::c_16, (uint32_t)1};
 
   auto reader_id = tt_metal::CreateKernel(
@@ -264,15 +266,17 @@ at::Tensor& mm_out_tt(const at::Tensor & self, const at::Tensor & mat2, at::Tens
     1,                                 // B
     1,                                 // Mt
     Kt,                                // Kt
-    num_output_tiles_per_core_group_1  // Nt
+    num_output_tiles_per_core_group_1, // Nt
+    (uint32_t) !mat2.is_contiguous() // whether b is transposed
   };  // bmm compute kernel the B, Mt, Nt are just 3 for loops that technically act as 1 large loop, so only set Nt
       // for simplicity
 
   auto matmul_multi_core_kernel_group_1_id = tt_metal::CreateKernel(
     program,
-    "tt_metal/programming_examples/matmul_common/kernels/compute/bmm.cpp",
+    // TODO: The path is currently hard-coded, figure out how to fix it
+    "/root/pytorch/aten/src/ATen/native/tt/kernels/compute/bmm.cpp",
     core_group_1,
-    tt_metal::ComputeConfig{.math_fidelity = math_fidelity, .compile_args = compute_args_group_1});
+    tt_metal::ComputeConfig{.math_fidelity = math_fidelity, .fp32_dest_acc_en = true, .compile_args = compute_args_group_1});
 
   if (!core_group_2.ranges().empty()) {
      std::vector<uint32_t> compute_args_group_2 = {
