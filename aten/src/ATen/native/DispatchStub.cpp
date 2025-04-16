@@ -147,6 +147,7 @@ DispatchResult DispatchStubImpl::try_get_call_ptr(
         c10::DeviceType::MPS,
         c10::DeviceType::MTIA,
         c10::DeviceType::XPU,
+        c10::DeviceType::TT,
         c10::DeviceType::PrivateUse1
     );
     // Check if the device type is supported.
@@ -197,6 +198,9 @@ DispatchResult DispatchStubImpl::try_get_call_ptr(
 #endif
     case DeviceType::MTIA:
       return mtia_dispatch_ptr != nullptr ? DispatchResult(mtia_dispatch_ptr) : ErrorType::MissingDeviceKernel;
+
+    case DeviceType::TT:
+      return tt_dispatch_ptr != nullptr ? DispatchResult(tt_dispatch_ptr) : ErrorType::MissingDeviceKernel;
 
 #if defined(USE_XPU)
     case DeviceType::XPU:
