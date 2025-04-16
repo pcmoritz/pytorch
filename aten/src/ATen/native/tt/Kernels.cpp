@@ -427,6 +427,82 @@ Tensor& uniform_tt_(Tensor& self, double from, double to, std::optional<Generato
   return self;
 }
 
+Tensor index_select_tt(const Tensor& self, int64_t dim, const Tensor& index) {
+  TORCH_CHECK(index.dim() == 1, "Index is supposed to be a vector");
+  TORCH_CHECK(self.stride(dim) % FACE_WIDTH == 0, "Size of vectors to be selected currently needs to be divisible by FACE_WIDTH");
+
+  Tensor out = at::empty({0}, self.options());
+  std::cout << "XXX dim = " << dim << std::endl;
+  std::cout << "is_contiguous = " << self.is_contiguous() << std::endl;
+  for(int i = 0; i < self.dim(); ++i) {
+    std::cout << "size[" << i << "] = " << self.size(i) << std::endl;
+    std::cout << "stride[" << i << "] = " << self.stride(i) << std::endl;
+  }
+
+  auto contiguous_index = index.contiguous();
+  uint64_t num_indices = index.numel();
+  std::vector<int64_t> new_size = self.sizes().vec();
+  new_size[dim] = num_indices;
+  at::native::resize_output(out, new_size);
+
+  auto* allocator = at::tt::GetTTAllocator();
+  auto* device = allocator->device();
+  CommandQueue& cq = device->command_queue();
+  Program program = CreateProgram();
+
+  auto grid_size = device->compute_with_storage_grid_size();
+  uint32_t num_cores_x = grid_size.x;
+  uint32_t num_cores_y = grid_size.y;
+  uint32_t num_cores_total = num_cores_x * num_cores_y;
+  auto all_device_cores = CoreRange({0, 0}, {num_cores_x - 1, num_cores_y - 1});
+
+  CBHandle cb_indices = MakeCircularBuffer(program, core, cb, 2 * FACE_WIDTH, FACE_WIDTH, DataFormat::UInt32);
+
+  // Distribute the indices onto the cores
+  auto [num_cores, all_cores, core_group_1, core_group_2, num_indices_per_core_group_1, num_indices_per_core_group_2] =
+    split_work_to_cores(grid_size, num_indices);
+
+  auto reader_id = tt_metal::CreateKernel(
+    program,
+    // TODO: The path is currently hard-coded, figure out how to fix it
+    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/index_select_reader_row_major.cpp",
+    all_cores,
+    tt_metal::DataMovementConfig{
+        .processor = DataMovementProcessor::RISCV_1,
+        .noc = NOC::RISCV_1_default,
+        .compile_args = reader_compile_time_args});
+
+  auto writer_id = tt_metal::CreateKernel(
+    program,
+    // TODO: The path is currently hard-coded, figure out how to fix it
+    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/index_select_writer_row_major.cpp",
+    all_cores,
+    tt_metal::DataMovementConfig{
+        .processor = DataMovementProcessor::RISCV_0,
+        .noc = NOC::RISCV_0_default,
+        .compile_args = writer_compile_time_args});
+
+  auto cores = grid_to_cores(num_cores_total, num_cores_x, num_cores_y, row_major);
+  for (uint32_t i = 0, start_index = 0; i < num_cores_total; i++) {
+    CoreCoord core = {i / num_cores_y, i % num_cores_y};
+
+    uint32_t num_indices_per_core;
+    if (core_group_1.contains(core)) {
+      num_indices_per_core = num_indices_per_core_group_1;
+    } else if (core_group_2.contains(core)) {
+      num_indices_per_core = num_indices_per_core_group_2;
+    } else {
+        TT_ASSERT(false, "Core not in specified core ranges");
+    }
+
+    tt_metal::SetRuntimeArgs(program, writer_id, core, {});
+
+    start_index += num_indices_per_core;
+  }
+
+  return out;
+}
+
 // static void sum_kernel_tt(TensorIterator& iter) {
 // }
 
