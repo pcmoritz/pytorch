@@ -11,9 +11,8 @@ void kernel_main() {
   
   uint32_t in_addr = get_arg_val<uint32_t>(0);
   uint32_t out_addr = get_arg_val<uint32_t>(1);
-  uint32_t indices_addr = get_arg_val<uint32_t>(2);
-  uint32_t n_pages = get_arg_val<uint32_t>(3);
-  uint32_t start_page_id = get_arg_val<uint32_t>(4);
+  uint32_t n_pages = get_arg_val<uint32_t>(2);
+  uint32_t start_page_id = get_arg_val<uint32_t>(3);
 
   constexpr uint32_t datum_size_bytes = 2;
 

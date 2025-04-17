@@ -451,6 +451,10 @@ Tensor index_select_tt(const Tensor& self, int64_t dim, const Tensor& index) {
   CommandQueue& cq = device->command_queue();
   Program program = CreateProgram();
 
+  auto input = allocator->get_buffer(self.data_ptr());
+  auto output = allocator->get_buffer(out.data_ptr());
+  auto indices = allocator->get_buffer(index.data_ptr());
+
   auto grid_size = device->compute_with_storage_grid_size();
   uint32_t num_cores_x = grid_size.x;
   uint32_t num_cores_y = grid_size.y;
@@ -460,8 +464,9 @@ Tensor index_select_tt(const Tensor& self, int64_t dim, const Tensor& index) {
   CBHandle cb_indices = MakeCircularBuffer(program, all_device_cores, CBIndex::c_0, 2 * constants::FACE_WIDTH, constants::FACE_WIDTH, DataFormat::UInt32);
 
   // Distribute the indices onto the cores
-  auto [num_cores, all_cores, core_group_1, core_group_2, num_indices_per_core_group_1, num_indices_per_core_group_2] =
-    split_work_to_cores(grid_size, num_indices);
+  uint64_t num_pages = num_indices / constants::FACE_WIDTH; // TODO: Use ceil here and adapt boundary
+  auto [num_cores, all_cores, core_group_1, core_group_2, num_pages_per_core_group_1, num_pages_per_core_group_2] =
+    split_work_to_cores(grid_size, num_pages);
 
   std::vector<uint32_t> reader_compile_time_args = {(uint32_t)CBIndex::c_0};
   std::vector<uint32_t> writer_compile_time_args = {(uint32_t)CBIndex::c_0};
@@ -487,21 +492,22 @@ Tensor index_select_tt(const Tensor& self, int64_t dim, const Tensor& index) {
         .compile_args = writer_compile_time_args});
 
   auto cores = grid_to_cores(num_cores_total, num_cores_x, num_cores_y);
-  for (uint32_t i = 0, start_index = 0; i < num_cores_total; i++) {
+  for (uint32_t i = 0, start_page_id = 0; i < num_cores_total; i++) {
     CoreCoord core = {i / num_cores_y, i % num_cores_y};
 
-    uint32_t num_indices_per_core;
+    uint32_t num_pages_per_core;
     if (core_group_1.contains(core)) {
-      num_indices_per_core = num_indices_per_core_group_1;
+      num_pages_per_core = num_pages_per_core_group_1;
     } else if (core_group_2.contains(core)) {
-      num_indices_per_core = num_indices_per_core_group_2;
+      num_pages_per_core = num_pages_per_core_group_2;
     } else {
         TT_ASSERT(false, "Core not in specified core ranges");
     }
 
-    tt_metal::SetRuntimeArgs(program, writer_id, core, {});
+    tt_metal::SetRuntimeArgs(program, reader_id, core, {indices->address(), num_pages_per_core, start_page_id});
+    tt_metal::SetRuntimeArgs(program, writer_id, core, {input->address(), output->address(), num_pages_per_core, start_page_id});
 
-    start_index += num_indices_per_core;
+    start_page_id += num_pages_per_core;
   }
 
   return out;
