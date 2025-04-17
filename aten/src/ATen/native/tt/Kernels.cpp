@@ -8,6 +8,7 @@
 #include <tt-metalium/work_split.hpp>
 
 #include <ATen/ATen.h>
+#include <ATen/native/Resize.h>
 
 using namespace tt;
 using namespace tt::tt_metal;
@@ -429,7 +430,7 @@ Tensor& uniform_tt_(Tensor& self, double from, double to, std::optional<Generato
 
 Tensor index_select_tt(const Tensor& self, int64_t dim, const Tensor& index) {
   TORCH_CHECK(index.dim() == 1, "Index is supposed to be a vector");
-  TORCH_CHECK(self.stride(dim) % FACE_WIDTH == 0, "Size of vectors to be selected currently needs to be divisible by FACE_WIDTH");
+  TORCH_CHECK(self.stride(dim) % constants::FACE_WIDTH == 0, "Size of vectors to be selected currently needs to be divisible by FACE_WIDTH");
 
   Tensor out = at::empty({0}, self.options());
   std::cout << "XXX dim = " << dim << std::endl;
@@ -456,11 +457,14 @@ Tensor index_select_tt(const Tensor& self, int64_t dim, const Tensor& index) {
   uint32_t num_cores_total = num_cores_x * num_cores_y;
   auto all_device_cores = CoreRange({0, 0}, {num_cores_x - 1, num_cores_y - 1});
 
-  CBHandle cb_indices = MakeCircularBuffer(program, core, cb, 2 * FACE_WIDTH, FACE_WIDTH, DataFormat::UInt32);
+  CBHandle cb_indices = MakeCircularBuffer(program, all_device_cores, CBIndex::c_0, 2 * constants::FACE_WIDTH, constants::FACE_WIDTH, DataFormat::UInt32);
 
   // Distribute the indices onto the cores
   auto [num_cores, all_cores, core_group_1, core_group_2, num_indices_per_core_group_1, num_indices_per_core_group_2] =
     split_work_to_cores(grid_size, num_indices);
+
+  std::vector<uint32_t> reader_compile_time_args = {(uint32_t)CBIndex::c_0};
+  std::vector<uint32_t> writer_compile_time_args = {(uint32_t)CBIndex::c_0};
 
   auto reader_id = tt_metal::CreateKernel(
     program,
@@ -482,7 +486,7 @@ Tensor index_select_tt(const Tensor& self, int64_t dim, const Tensor& index) {
         .noc = NOC::RISCV_0_default,
         .compile_args = writer_compile_time_args});
 
-  auto cores = grid_to_cores(num_cores_total, num_cores_x, num_cores_y, row_major);
+  auto cores = grid_to_cores(num_cores_total, num_cores_x, num_cores_y);
   for (uint32_t i = 0, start_index = 0; i < num_cores_total; i++) {
     CoreCoord core = {i / num_cores_y, i % num_cores_y};
 
