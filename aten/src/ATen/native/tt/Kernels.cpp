@@ -432,7 +432,6 @@ Tensor index_select_tt(const Tensor& self, int64_t dim, const Tensor& index) {
   TORCH_CHECK(index.dim() == 1, "Index is supposed to be a vector");
   TORCH_CHECK(self.stride(dim) % constants::FACE_WIDTH == 0, "Size of vectors to be selected currently needs to be divisible by FACE_WIDTH");
 
-  Tensor out = at::empty({0}, self.options());
   std::cout << "XXX dim = " << dim << std::endl;
   std::cout << "is_contiguous = " << self.is_contiguous() << std::endl;
   for(int i = 0; i < self.dim(); ++i) {
@@ -444,7 +443,7 @@ Tensor index_select_tt(const Tensor& self, int64_t dim, const Tensor& index) {
   uint64_t num_indices = index.numel();
   std::vector<int64_t> new_size = self.sizes().vec();
   new_size[dim] = num_indices;
-  at::native::resize_output(out, new_size);
+  Tensor out = at::empty(new_size, self.options());
 
   auto* allocator = at::tt::GetTTAllocator();
   auto* device = allocator->device();
@@ -509,6 +508,10 @@ Tensor index_select_tt(const Tensor& self, int64_t dim, const Tensor& index) {
 
     start_page_id += num_pages_per_core;
   }
+
+  EnqueueProgram(cq, program, true);
+
+  Finish(cq);
 
   return out;
 }

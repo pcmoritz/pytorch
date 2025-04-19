@@ -1,5 +1,7 @@
 #include <cstdint>
 
+constexpr uint32_t FACE_WIDTH = 16;
+
 void kernel_main() {
   // Tile of indices of elements to copy
   constexpr uint32_t cb_indices = get_compile_time_arg_val(0);
