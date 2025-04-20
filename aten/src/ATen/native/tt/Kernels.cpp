@@ -453,7 +453,7 @@ Tensor index_select_tt(const Tensor& self, int64_t dim, const Tensor& index) {
   uint32_t num_cores_total = num_cores_x * num_cores_y;
   auto all_device_cores = CoreRange({0, 0}, {num_cores_x - 1, num_cores_y - 1});
 
-  CBHandle cb_indices = MakeCircularBuffer(program, all_device_cores, CBIndex::c_0, 2 * constants::FACE_WIDTH, constants::FACE_WIDTH, DataFormat::UInt32);
+  CBHandle cb_indices = MakeCircularBuffer(program, all_device_cores, CBIndex::c_0, 2 * constants::FACE_WIDTH, 2 * constants::FACE_WIDTH, DataFormat::UInt32);
 
   // Distribute the indices onto the cores
   uint64_t num_pages = num_indices / constants::FACE_WIDTH; // TODO: Use ceil here and adapt boundary

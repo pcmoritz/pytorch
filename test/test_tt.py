@@ -75,7 +75,7 @@ class TestTT(unittest.TestCase):
         vocab_size = 64
         n_embed = 32
         embed = nn.Embedding(vocab_size, n_embed).to(torch.bfloat16)
-        indices = torch.zeros(16, dtype=torch.int32)
+        indices = torch.randint(vocab_size, (128,), dtype=torch.int32)
         result_cpu = embed.forward(indices)
         result_tt = embed.to("tt").forward(indices.to("tt")).cpu()
         self.assertTrue(torch.allclose(result_cpu, result_tt))

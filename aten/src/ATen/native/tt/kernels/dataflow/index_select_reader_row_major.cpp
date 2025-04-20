@@ -21,7 +21,7 @@ void kernel_main() {
   for (uint32_t i = start_page_id; i < end_page_id; ++i) {
     cb_reserve_back(cb_indices, 1);
     uint32_t cb_indices_addr = get_write_ptr(cb_indices);
-    uint64_t indices_noc_addr = get_noc_addr(i * FACE_WIDTH * datum_size_bytes, indices);
+    uint64_t indices_noc_addr = get_noc_addr(i, indices);
     noc_async_read(indices_noc_addr, cb_indices_addr, FACE_WIDTH * datum_size_bytes);
     noc_async_read_barrier();
     cb_push_back(cb_indices, 1);
