@@ -432,13 +432,6 @@ Tensor index_select_tt(const Tensor& self, int64_t dim, const Tensor& index) {
   TORCH_CHECK(index.dim() == 1, "Index is supposed to be a vector");
   TORCH_CHECK(self.stride(dim) % constants::FACE_WIDTH == 0, "Size of vectors to be selected currently needs to be divisible by FACE_WIDTH");
 
-  std::cout << "XXX dim = " << dim << std::endl;
-  std::cout << "is_contiguous = " << self.is_contiguous() << std::endl;
-  for(int i = 0; i < self.dim(); ++i) {
-    std::cout << "size[" << i << "] = " << self.size(i) << std::endl;
-    std::cout << "stride[" << i << "] = " << self.stride(i) << std::endl;
-  }
-
   auto contiguous_index = index.contiguous();
   uint64_t num_indices = index.numel();
   std::vector<int64_t> new_size = self.sizes().vec();
@@ -467,6 +460,17 @@ Tensor index_select_tt(const Tensor& self, int64_t dim, const Tensor& index) {
   auto [num_cores, all_cores, core_group_1, core_group_2, num_pages_per_core_group_1, num_pages_per_core_group_2] =
     split_work_to_cores(grid_size, num_pages);
 
+  constexpr uint32_t datum_size_bytes = sizeof(uint32_t);
+
+  // Create a buffer in SRAM which will be used as temporary storage to copy over data from input to output
+  // For now we will just make it size FACE_WIDTH for simplicity but we might need to optimize that later
+  tt_metal::InterleavedBufferConfig l1_config{
+    .device = device,
+    .size = datum_size_bytes * constants::FACE_WIDTH,
+    .page_size = datum_size_bytes * constants::FACE_WIDTH,
+    .buffer_type = tt_metal::BufferType::L1};
+  auto l1_buffer = CreateBuffer(l1_config);
+
   std::vector<uint32_t> reader_compile_time_args = {(uint32_t)CBIndex::c_0};
   std::vector<uint32_t> writer_compile_time_args = {(uint32_t)CBIndex::c_0};
 
@@ -474,7 +478,7 @@ Tensor index_select_tt(const Tensor& self, int64_t dim, const Tensor& index) {
     program,
     // TODO: The path is currently hard-coded, figure out how to fix it
     "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/index_select_reader_row_major.cpp",
-    all_cores,
+    all_device_cores,
     tt_metal::DataMovementConfig{
         .processor = DataMovementProcessor::RISCV_1,
         .noc = NOC::RISCV_1_default,
@@ -484,7 +488,7 @@ Tensor index_select_tt(const Tensor& self, int64_t dim, const Tensor& index) {
     program,
     // TODO: The path is currently hard-coded, figure out how to fix it
     "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/index_select_writer_row_major.cpp",
-    all_cores,
+    all_device_cores,
     tt_metal::DataMovementConfig{
         .processor = DataMovementProcessor::RISCV_0,
         .noc = NOC::RISCV_0_default,
@@ -500,11 +504,15 @@ Tensor index_select_tt(const Tensor& self, int64_t dim, const Tensor& index) {
     } else if (core_group_2.contains(core)) {
       num_pages_per_core = num_pages_per_core_group_2;
     } else {
-        TT_ASSERT(false, "Core not in specified core ranges");
+      SetRuntimeArgs(program, reader_id, core, std::array<uint32_t, 3>{0});
+      SetRuntimeArgs(program, writer_id, core, std::array<uint32_t, 5>{0});
+      continue;
     }
 
-    tt_metal::SetRuntimeArgs(program, reader_id, core, {indices->address(), num_pages_per_core, start_page_id});
-    tt_metal::SetRuntimeArgs(program, writer_id, core, {input->address(), output->address(), num_pages_per_core, start_page_id});
+    std::vector<uint32_t> reader_args = {indices->address(), num_pages_per_core, start_page_id};
+    tt_metal::SetRuntimeArgs(program, reader_id, core, reader_args);
+    std::vector<uint32_t> writer_args = {input->address(), output->address(), l1_buffer->address(), num_pages_per_core, start_page_id, (uint32_t) self.stride(dim)};
+    tt_metal::SetRuntimeArgs(program, writer_id, core, writer_args);
 
     start_page_id += num_pages_per_core;
   }
