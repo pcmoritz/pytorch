@@ -34,7 +34,7 @@ static CBHandle MakeCircularBufferF32(Program& program, const CoreSpec& core, CB
 }
 
 // Compute c <- a <op> b for tensors a, b, c with numel elements
-void EltwiseOp(const std::shared_ptr<Buffer>& a, const std::shared_ptr<Buffer>& b, const std::shared_ptr<Buffer>& c, int64_t numel, const IDevice* device) {
+static void EltwiseOp(const std::shared_ptr<Buffer>& a, const std::shared_ptr<Buffer>& b, const std::shared_ptr<Buffer>& c, int64_t numel, IDevice* device) {
   CommandQueue& cq = device->command_queue();
   Program program = CreateProgram();
 
