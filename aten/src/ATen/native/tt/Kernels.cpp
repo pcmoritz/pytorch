@@ -1,4 +1,5 @@
 #include <ATen/ops/add_native.h>
+#include <ATen/ops/mul_native.h>
 #include <ATen/ops/relu_native.h>
 #include <ATen/ops/mm_native.h>
 #include <ATen/ops/addmm_native.h>
@@ -33,8 +34,24 @@ static CBHandle MakeCircularBufferF32(Program& program, const CoreSpec& core, CB
   return MakeCircularBuffer(program, core, cb, n_tiles * tile_size, tile_size, DataFormat::Float32);
 }
 
+enum class BinaryOpType {
+  ADD,
+  MUL,
+};
+
+static std::map<std::string, std::string> get_binary_op_defines(BinaryOpType op) {
+  switch (op) {
+  case BinaryOpType::ADD:
+    return {{"ELTWISE_OP", "add_tiles"}, {"ELTWISE_OP_TYPE", "EltwiseBinaryType::ELWADD"}};
+  case BinaryOpType::MUL:
+    return {{"ELTWISE_OP", "mul_tiles"}, {"ELTWISE_OP_TYPE", "EltwiseBinaryType::ELWMUL"}};
+  default:
+    TORCH_INTERNAL_ASSERT(false, "Unrecognized BinaryOpType: ", static_cast<int64_t>(op));
+  }
+}
+
 // Compute c <- a <op> b for tensors a, b, c with numel elements
-static void EltwiseOp(const std::shared_ptr<Buffer>& a, const std::shared_ptr<Buffer>& b, const std::shared_ptr<Buffer>& c, int64_t numel, IDevice* device) {
+static void EltwiseBinaryOp(BinaryOpType op, const std::shared_ptr<Buffer>& a, const std::shared_ptr<Buffer>& b, const std::shared_ptr<Buffer>& c, int64_t numel, IDevice* device) {
   CommandQueue& cq = device->command_queue();
   Program program = CreateProgram();
 
@@ -77,7 +94,7 @@ static void EltwiseOp(const std::shared_ptr<Buffer>& a, const std::shared_ptr<Bu
       program,
       "ttnn/cpp/ttnn/operations/eltwise/binary/device/kernels/compute/eltwise_binary_kernel.cpp",
       all_device_cores,
-      ComputeConfig{.math_approx_mode = false, .compile_args = compute_compile_time_args, .defines = {{"ELTWISE_OP", "add_tiles"}, {"ELTWISE_OP_TYPE", "EltwiseBinaryType::ELWADD"}}});
+      ComputeConfig{.math_approx_mode = false, .compile_args = compute_compile_time_args, .defines = get_binary_op_defines(op)});
 
   constexpr bool row_major = true;
   auto [num_cores, all_cores, core_group_1, core_group_2, num_tiles_per_core_group_1, num_tiles_per_core_group_2] =
@@ -116,7 +133,20 @@ at::Tensor & add_out_tt(const at::Tensor & self, const at::Tensor & other, const
   auto b = allocator->get_buffer(other.data_ptr());
   auto c = allocator->get_buffer(out.data_ptr());
 
-  EltwiseOp(a, b, c, self.numel(), device);
+  EltwiseBinaryOp(BinaryOpType::ADD, a, b, c, self.numel(), device);
+
+  return out;
+}
+
+at::Tensor & mul_out_tt(const at::Tensor & self, const at::Tensor & other, at::Tensor & out) {
+  auto* allocator = at::tt::GetTTAllocator();
+  auto* device = allocator->device();
+
+  auto a = allocator->get_buffer(self.data_ptr());
+  auto b = allocator->get_buffer(other.data_ptr());
+  auto c = allocator->get_buffer(out.data_ptr());
+
+  EltwiseBinaryOp(BinaryOpType::MUL, a, b, c, self.numel(), device);
 
   return out;
 }

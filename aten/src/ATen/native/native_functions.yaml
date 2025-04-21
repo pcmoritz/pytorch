@@ -4248,6 +4248,7 @@
   dispatch:
     CPU, CUDA: mul_out
     MPS: mul_out_mps
+    TT: mul_out_tt
     SparseCPU: mul_out_sparse_cpu
     SparseCUDA: mul_out_sparse_cuda
     SparseCsrCPU, SparseCsrCUDA, SparseCsrMeta: mul_out_sparse_csr

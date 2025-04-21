@@ -36,6 +36,13 @@ class TestTT(unittest.TestCase):
         d = c.to("cpu")
         self.assertTrue((d == 2.0).all())
 
+    def test_tt_mul(self):
+        a = 2.0 * torch.ones(64 * 32, dtype=torch.bfloat16)
+        b = a.to("tt")
+        c = b * b
+        d = c.to("cpu")
+        self.assertTrue((d == 4.0).all())
+
     def test_tt_relu(self):
         a = torch.ones(32 * 32, dtype=torch.bfloat16)
         b = torch.relu(a)
