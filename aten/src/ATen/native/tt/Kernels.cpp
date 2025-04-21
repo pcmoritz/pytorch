@@ -33,17 +33,12 @@ static CBHandle MakeCircularBufferF32(Program& program, const CoreSpec& core, CB
   return MakeCircularBuffer(program, core, cb, n_tiles * tile_size, tile_size, DataFormat::Float32);
 }
 
-at::Tensor & add_out_tt(const at::Tensor & self, const at::Tensor & other, const at::Scalar & alpha, at::Tensor & out) {
-  auto* allocator = at::tt::GetTTAllocator();
-  auto* device = allocator->device();
+// Compute c <- a <op> b for tensors a, b, c with numel elements
+void EltwiseOp(const std::shared_ptr<Buffer>& a, const std::shared_ptr<Buffer>& b, const std::shared_ptr<Buffer>& c, int64_t numel, const IDevice* device) {
   CommandQueue& cq = device->command_queue();
   Program program = CreateProgram();
 
-  const uint32_t n_tiles = (self.numel() + ::tt::constants::TILE_HW - 1) / ::tt::constants::TILE_HW;
-
-  auto a = allocator->get_buffer(self.data_ptr());
-  auto b = allocator->get_buffer(other.data_ptr());
-  auto c = allocator->get_buffer(out.data_ptr());
+  const uint32_t n_tiles = (numel + ::tt::constants::TILE_HW - 1) / ::tt::constants::TILE_HW;
 
   auto grid_size = device->compute_with_storage_grid_size();
   uint32_t num_cores_x = grid_size.x;
@@ -110,9 +105,19 @@ at::Tensor & add_out_tt(const at::Tensor & self, const at::Tensor & other, const
   }
 
   EnqueueProgram(cq, program, true);
-  
   Finish(cq);
-  
+}
+
+at::Tensor & add_out_tt(const at::Tensor & self, const at::Tensor & other, const at::Scalar & alpha, at::Tensor & out) {
+  auto* allocator = at::tt::GetTTAllocator();
+  auto* device = allocator->device();
+
+  auto a = allocator->get_buffer(self.data_ptr());
+  auto b = allocator->get_buffer(other.data_ptr());
+  auto c = allocator->get_buffer(out.data_ptr());
+
+  EltwiseOp(a, b, c, self.numel(), device);
+
   return out;
 }
 
