@@ -80,9 +80,9 @@ at::Tensor & add_out_tt(const at::Tensor & self, const at::Tensor & other, const
           .compile_args = writer_compile_time_args});
   auto compute = CreateKernel(
       program,
-      "tt_metal/programming_examples/vecadd_multi_core/kernels/add_multi_core.cpp",
+      "ttnn/cpp/ttnn/operations/eltwise/binary/device/kernels/compute/eltwise_binary_kernel.cpp",
       all_device_cores,
-      ComputeConfig{.math_approx_mode = false, .compile_args = compute_compile_time_args, .defines = {}});
+      ComputeConfig{.math_approx_mode = false, .compile_args = compute_compile_time_args, .defines = {{"ELTWISE_OP", "add_tiles"}, {"ELTWISE_OP_TYPE", "EltwiseBinaryType::ELWADD"}}});
 
   constexpr bool row_major = true;
   auto [num_cores, all_cores, core_group_1, core_group_2, num_tiles_per_core_group_1, num_tiles_per_core_group_2] =
@@ -105,7 +105,7 @@ at::Tensor & add_out_tt(const at::Tensor & self, const at::Tensor & other, const
       }
       SetRuntimeArgs(program, reader, core, {a->address(), b->address(), num_tiles_per_core, start_tile_id});
       SetRuntimeArgs(program, writer, core, {c->address(), num_tiles_per_core, start_tile_id});
-      SetRuntimeArgs(program, compute, core, {num_tiles_per_core, start_tile_id});
+      SetRuntimeArgs(program, compute, core, {num_tiles_per_core, 1});
       start_tile_id += num_tiles_per_core;
   }
 

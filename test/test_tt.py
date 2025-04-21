@@ -23,14 +23,14 @@ class NeuralNetwork(nn.Module):
 class TestTT(unittest.TestCase):
 
     def test_tt_roundtrip(self):
-        for dtype in [torch.bfloat16, torch.float32]:
+        for dtype in [torch.bfloat16, torch.float32, torch.long]:
             a = torch.ones(100000, dtype=dtype)
             b = a.to("tt")
             c = b.to("cpu")
             self.assertTrue((a == c).all())
 
     def test_tt_add(self):
-        a = torch.ones(32 * 32, dtype=torch.bfloat16)
+        a = torch.ones(64 * 32, dtype=torch.bfloat16)
         b = a.to("tt")
         c = b + b
         d = c.to("cpu")
