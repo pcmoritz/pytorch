@@ -1,4 +1,5 @@
 #include <ATen/ops/add_native.h>
+#include <ATen/ops/cat_native.h>
 #include <ATen/ops/mul_native.h>
 #include <ATen/ops/relu_native.h>
 #include <ATen/ops/mm_native.h>
@@ -555,6 +556,36 @@ Tensor index_select_tt(const Tensor& self, int64_t dim, const Tensor& index) {
   EnqueueProgram(cq, program, true);
 
   Finish(cq);
+
+  return out;
+}
+
+at::Tensor & cat_out_tt(const at::ITensorListRef & tensors, int64_t dim, at::Tensor & out) {
+  auto inputs = tensors.materialize();
+
+  for (int i = 0; i < out.dim(); ++i) {
+    std::cout << "out.size[" << i << "] = " << out.size(i) << std::endl;
+  }
+
+  auto* allocator = at::tt::GetTTAllocator();
+  auto* device = allocator->device();
+
+  auto grid_size = device->compute_with_storage_grid_size();
+  uint32_t num_cores_x = grid_size.x;
+  uint32_t num_cores_y = grid_size.y;
+  uint32_t num_cores_total = num_cores_x * num_cores_y;
+  auto all_device_cores = CoreRange({0, 0}, {num_cores_x - 1, num_cores_y - 1});
+
+  int32_t num_pages = out.numel() / constants::FACE_WIDTH;
+  auto [num_cores, all_cores, core_group_1, core_group_2, num_pages_per_core_group_1, num_pages_per_core_group_2] =
+    split_work_to_cores(grid_size, num_pages);
+
+  auto cores = grid_to_cores(num_cores_total, num_cores_x, num_cores_y);
+  for (uint32_t i = 0, start_page_id = 0; i < num_cores_total; i++) {
+    CoreCoord core = {i / num_cores_y, i % num_cores_y};
+
+    uint32_t num_pages_per_core;
+  }
 
   return out;
 }
