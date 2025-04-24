@@ -44,7 +44,7 @@ class TestTT(unittest.TestCase):
         self.assertTrue((d == 4.0).all())
 
     def test_tt_eltwise(self):
-        for func in [torch.relu, torch.cos]:
+        for func in [torch.relu, torch.cos, torch.sin]:
             a = torch.ones(32 * 32, dtype=torch.bfloat16)
             b = func(a)
             c = func(a.to("tt"))

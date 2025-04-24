@@ -129,6 +129,7 @@ static void EltwiseBinaryOp(BinaryOpType op, const std::shared_ptr<Buffer>& a, c
 
 enum class UnaryOpType {
   COS,
+  SIN,
   RELU,
 };
 
@@ -136,6 +137,8 @@ static std::map<std::string, std::string> get_unary_op_defines(UnaryOpType op) {
   switch (op) {
   case UnaryOpType::COS:
     return {{"SFPU_OP_TRIG_FAMILY_INCLUDE", "1"}, {"SFPU_OP_CHAIN_0", "cos_tile_init(); cos_tile(0);"}};
+  case UnaryOpType::SIN:
+    return {{"SFPU_OP_TRIG_FAMILY_INCLUDE", "1"}, {"SFPU_OP_CHAIN_0", "sin_tile_init(); sin_tile(0);"}};
   case UnaryOpType::RELU:
     return {{"SFPU_OP_RELU_FAMILY_INCLUDE", "1"}, {"SFPU_OP_CHAIN_0", "relu_tile_init(); relu_tile(0);"}};
   default:
@@ -273,6 +276,20 @@ at::Tensor & cos_out_tt(const at::Tensor & self, at::Tensor & out) {
 
   EltwiseUnaryOp(UnaryOpType::COS, a, b, self.numel(), device);
 
+  return out;
+}
+
+// SIN
+
+at::Tensor& at::native::sin_out_tt(at::Tensor const& self, at::Tensor& out) {
+  auto* allocator = at::tt::GetTTAllocator();
+  auto* device = allocator->device();
+
+  auto a = allocator->get_buffer(self.data_ptr());
+  auto b = allocator->get_buffer(out.data_ptr());
+
+  EltwiseUnaryOp(UnaryOpType::SIN, a, b, self.numel(), device);
+  
   return out;
 }
 

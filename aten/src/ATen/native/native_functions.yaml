@@ -5369,6 +5369,7 @@
   dispatch:
     CPU, CUDA: sin_out
     MPS: sin_out_mps
+    TT: sin_out_tt
     SparseCsrCPU, SparseCsrCUDA, SparseCsrMeta: sin_sparse_csr_out
     SparseCPU, SparseCUDA: sin_sparse_out
   tags: pointwise
