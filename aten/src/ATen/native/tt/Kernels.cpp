@@ -496,7 +496,7 @@ Tensor index_select_tt(const Tensor& self, int64_t dim, const Tensor& index) {
   auto [num_cores, all_cores, core_group_1, core_group_2, num_pages_per_core_group_1, num_pages_per_core_group_2] =
     split_work_to_cores(grid_size, num_pages);
 
-  constexpr uint32_t datum_size_bytes = sizeof(uint32_t);
+  constexpr uint32_t datum_size_bytes = sizeof(uint32_t); // TODO: Fix this!
 
   // Create a buffer in SRAM which will be used as temporary storage to copy over data from input to output
   // For now we will just make it size FACE_WIDTH for simplicity but we might need to optimize that later
@@ -563,12 +563,27 @@ Tensor index_select_tt(const Tensor& self, int64_t dim, const Tensor& index) {
 at::Tensor & cat_out_tt(const at::ITensorListRef & tensors, int64_t dim, at::Tensor & out) {
   auto inputs = tensors.materialize();
 
+  int64_t num_tensors = inputs.size();
+  uint32_t num_pages = out.numel() / constants::FACE_WIDTH;
+  uint32_t num_output_pages_per_block = out.size(dim) * out.stride(dim) / constants::FACE_WIDTH;
+  std::cout << "num_output_pages_per_block = " << num_output_pages_per_block << std::endl;
+  std::vector<uint32_t> num_pages_per_block(num_tensors);
+
+  for (int i = 0; i < num_tensors; ++i) {
+    auto& tensor = inputs[i].get();
+    num_pages_per_block[i] = tensor.size(dim) * tensor.stride(dim) / constants::FACE_WIDTH;
+  }
+
   for (int i = 0; i < out.dim(); ++i) {
     std::cout << "out.size[" << i << "] = " << out.size(i) << std::endl;
   }
 
   auto* allocator = at::tt::GetTTAllocator();
   auto* device = allocator->device();
+  CommandQueue& cq = device->command_queue();
+  Program program = CreateProgram();
+
+  auto output = allocator->get_buffer(out.data_ptr());
 
   auto grid_size = device->compute_with_storage_grid_size();
   uint32_t num_cores_x = grid_size.x;
@@ -576,16 +591,89 @@ at::Tensor & cat_out_tt(const at::ITensorListRef & tensors, int64_t dim, at::Ten
   uint32_t num_cores_total = num_cores_x * num_cores_y;
   auto all_device_cores = CoreRange({0, 0}, {num_cores_x - 1, num_cores_y - 1});
 
-  int32_t num_pages = out.numel() / constants::FACE_WIDTH;
   auto [num_cores, all_cores, core_group_1, core_group_2, num_pages_per_core_group_1, num_pages_per_core_group_2] =
     split_work_to_cores(grid_size, num_pages);
 
+  constexpr uint32_t datum_size_bytes = sizeof(bfloat16);
+
+  // Create a buffer in SRAM which will be used as temporary storage to copy over data from input to output
+  // For now we will just make it size FACE_WIDTH for simplicity but we might need to optimize that later
+  tt_metal::InterleavedBufferConfig l1_config{
+    .device = device,
+    .size = datum_size_bytes * constants::FACE_WIDTH,
+    .page_size = datum_size_bytes * constants::FACE_WIDTH,
+    .buffer_type = tt_metal::BufferType::L1};
+  auto l1_buffer = CreateBuffer(l1_config);
+
+  std::vector<uint32_t> writer_compile_time_args = {(uint32_t)num_tensors};
+
+  auto writer_id = tt_metal::CreateKernel(
+    program,
+    // TODO: The path is currently hard-coded, figure out how to fix it
+    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/index_select_writer_row_major.cpp",
+    all_device_cores,
+    tt_metal::DataMovementConfig{
+        .processor = DataMovementProcessor::RISCV_0,
+        .noc = NOC::RISCV_0_default,
+        .compile_args = writer_compile_time_args});
+
+  std::vector<uint32_t> common_writer_args = {(uint32_t)dim, 0, 0, 0, 0, output->address(), l1_buffer->address()};
+  for (int i = 0; i < num_tensors; ++i) {
+    auto src = allocator->get_buffer(inputs[i].get()->data_ptr());
+    common_writer_args.push_back(src->address());
+  }
+  common_writer_args.insert(common_writer_args.end(), num_pages_per_block.begin(), num_pages_per_block.end());
+
+  std::vector<uint32_t> src_page_id(num_tensors);
   auto cores = grid_to_cores(num_cores_total, num_cores_x, num_cores_y);
   for (uint32_t i = 0, start_page_id = 0; i < num_cores_total; i++) {
     CoreCoord core = {i / num_cores_y, i % num_cores_y};
 
     uint32_t num_pages_per_core;
+    if (core_group_1.contains(core)) {
+      num_pages_per_core = num_pages_per_core_group_1;
+    } else if (core_group_2.contains(core)) {
+      num_pages_per_core = num_pages_per_core_group_2;
+    } else {
+      std::vector<uint32_t> writer_args(7 + 3 * num_tensors, 0);
+      SetRuntimeArgs(program, writer_id, core, writer_args);
+      continue;
+    }
+
+    uint32_t block_id = start_page_id / num_output_pages_per_block;
+    uint32_t page_id_within_block = start_page_id % num_output_pages_per_block;
+    uint32_t curr_tensor = 0;
+    uint32_t curr_tensor_page_id = 0;
+    for (int i = 0; i < num_tensors; ++i) {
+      src_page_id[i] = block_id * num_pages_per_block[i];
+      if (page_id_within_block == 0) {
+        continue;
+      } else if (page_id_within_block >= num_pages_per_block[i]) {
+        src_page_id[i] += num_pages_per_block[i];
+        page_id_within_block -= num_pages_per_block[i];
+        curr_tensor = i + 1;
+      } else {
+        src_page_id[i] += page_id_within_block;
+        curr_tensor = i;
+        curr_tensor_page_id = page_id_within_block;
+        page_id_within_block = 0;
+      }
+    }
+
+    std::vector<uint32_t> writer_args = common_writer_args;
+    writer_args[1] = num_pages_per_core;
+    writer_args[2] = start_page_id;
+    writer_args[3] = curr_tensor;
+    writer_args[4] = curr_tensor_page_id;
+    writer_args.insert(writer_args.end(), src_page_id.begin(), src_page_id.end());
+
+    tt_metal::SetRuntimeArgs(program, writer_id, core, writer_args);
+    start_page_id += num_pages_per_core;
   }
+
+  EnqueueProgram(cq, program, true);
+
+  Finish(cq);
 
   return out;
 }
