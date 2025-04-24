@@ -566,18 +566,11 @@ at::Tensor & cat_out_tt(const at::ITensorListRef & tensors, int64_t dim, at::Ten
   int64_t num_tensors = inputs.size();
   uint32_t num_pages = out.numel() / constants::FACE_WIDTH;
   uint32_t num_output_pages_per_block = out.size(dim) * out.stride(dim) / constants::FACE_WIDTH;
-  std::cout << "num_output_pages_per_block = " << num_output_pages_per_block << std::endl;
   std::vector<uint32_t> num_pages_per_block(num_tensors);
 
   for (int i = 0; i < num_tensors; ++i) {
     auto& tensor = inputs[i].get();
     num_pages_per_block[i] = tensor.size(dim) * tensor.stride(dim) / constants::FACE_WIDTH;
-  }
-
-  std::cout << "dim = " << dim << std::endl;
-  for (int i = 0; i < out.dim(); ++i) {
-    std::cout << "out.size[" << i << "] = " << out.size(i) << std::endl;
-    std::cout << "out.stride[" << i << "] = " << out.stride(i) << std::endl;
   }
 
   auto* allocator = at::tt::GetTTAllocator();

@@ -87,6 +87,13 @@ class TestTT(unittest.TestCase):
         result_tt = embed.to("tt").forward(indices.to("tt")).cpu()
         self.assertTrue(torch.allclose(result_cpu, result_tt))
 
+    def test_tt_cat(self):
+        a = torch.rand(1, 2, 32, dtype=torch.bfloat16)
+        b = torch.rand(1, 3, 32, dtype=torch.bfloat16)
+        c = torch.cat([a, b], dim=1)
+        c_tt = torch.cat([a.to("tt"), b.to("tt")], dim=1).to("cpu")
+        self.assertTrue(torch.allclose(c, c_tt))
+
 if __name__ == "__main__":
     unittest.main()
 
