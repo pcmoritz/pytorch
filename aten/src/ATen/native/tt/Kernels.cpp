@@ -127,45 +127,16 @@ static void EltwiseBinaryOp(BinaryOpType op, const std::shared_ptr<Buffer>& a, c
   Finish(cq);
 }
 
-at::Tensor & add_out_tt(const at::Tensor & self, const at::Tensor & other, const at::Scalar & alpha, at::Tensor & out) {
-  auto* allocator = at::tt::GetTTAllocator();
-  auto* device = allocator->device();
+enum class UnaryOpType {
+  COS,
+  RELU,
+};
 
-  auto a = allocator->get_buffer(self.data_ptr());
-  auto b = allocator->get_buffer(other.data_ptr());
-  auto c = allocator->get_buffer(out.data_ptr());
-
-  EltwiseBinaryOp(BinaryOpType::ADD, a, b, c, self.numel(), device);
-
-  return out;
-}
-
-at::Tensor & mul_out_tt(const at::Tensor & self, const at::Tensor & other, at::Tensor & out) {
-  auto* allocator = at::tt::GetTTAllocator();
-  auto* device = allocator->device();
-
-  auto a = allocator->get_buffer(self.data_ptr());
-  auto b = allocator->get_buffer(other.data_ptr());
-  auto c = allocator->get_buffer(out.data_ptr());
-
-  EltwiseBinaryOp(BinaryOpType::MUL, a, b, c, self.numel(), device);
-
-  return out;
-}
-
-// RELU
-
-Tensor relu_tt(const Tensor& self) {
-  auto* allocator = at::tt::GetTTAllocator();
-  auto* device = allocator->device();
+static void EltwiseUnaryOp(UnaryOpType op, const std::shared_ptr<Buffer>& a, const std::shared_ptr<Buffer>& b, int64_t numel, IDevice* device) {
   CommandQueue& cq = device->command_queue();
   Program program = CreateProgram();
 
-  const uint32_t n_tiles = (self.numel() + ::tt::constants::TILE_HW - 1) / ::tt::constants::TILE_HW;
-  auto out = at::empty_like(self);
-
-  auto a = allocator->get_buffer(self.data_ptr());
-  auto b = allocator->get_buffer(out.data_ptr());
+  const uint32_t n_tiles = (numel + ::tt::constants::TILE_HW - 1) / ::tt::constants::TILE_HW;
 
   auto grid_size = device->compute_with_storage_grid_size();
   uint32_t num_cores_x = grid_size.x;
@@ -236,6 +207,47 @@ Tensor relu_tt(const Tensor& self) {
 
   EnqueueProgram(cq, program, true);
   Finish(cq);
+}
+
+// Elementwise addition
+
+at::Tensor & add_out_tt(const at::Tensor & self, const at::Tensor & other, const at::Scalar & alpha, at::Tensor & out) {
+  auto* allocator = at::tt::GetTTAllocator();
+  auto* device = allocator->device();
+
+  auto a = allocator->get_buffer(self.data_ptr());
+  auto b = allocator->get_buffer(other.data_ptr());
+  auto c = allocator->get_buffer(out.data_ptr());
+
+  EltwiseBinaryOp(BinaryOpType::ADD, a, b, c, self.numel(), device);
+
+  return out;
+}
+
+at::Tensor & mul_out_tt(const at::Tensor & self, const at::Tensor & other, at::Tensor & out) {
+  auto* allocator = at::tt::GetTTAllocator();
+  auto* device = allocator->device();
+
+  auto a = allocator->get_buffer(self.data_ptr());
+  auto b = allocator->get_buffer(other.data_ptr());
+  auto c = allocator->get_buffer(out.data_ptr());
+
+  EltwiseBinaryOp(BinaryOpType::MUL, a, b, c, self.numel(), device);
+
+  return out;
+}
+
+// RELU
+
+Tensor relu_tt(const Tensor& self) {
+  auto* allocator = at::tt::GetTTAllocator();
+  auto* device = allocator->device();
+
+  auto out = at::empty_like(self);
+  auto a = allocator->get_buffer(self.data_ptr());
+  auto b = allocator->get_buffer(out.data_ptr());
+
+  EltwiseUnaryOp(UnaryOpType::RELU, a, b, self.numel(), device);
 
   return out;
 }
