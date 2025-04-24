@@ -135,7 +135,7 @@ enum class UnaryOpType {
 static std::map<std::string, std::string> get_unary_op_defines(UnaryOpType op) {
   switch (op) {
   case UnaryOpType::COS:
-    return {{"SFPU_OP_CHAIN_0", "cos_tile_init(); cos_tile(0);"}};
+    return {{"SFPU_OP_TRIG_FAMILY_INCLUDE", "1"}, {"SFPU_OP_CHAIN_0", "cos_tile_init(); cos_tile(0);"}};
   case UnaryOpType::RELU:
     return {{"SFPU_OP_RELU_FAMILY_INCLUDE", "1"}, {"SFPU_OP_CHAIN_0", "relu_tile_init(); relu_tile(0);"}};
   default:

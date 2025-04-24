@@ -43,11 +43,12 @@ class TestTT(unittest.TestCase):
         d = c.to("cpu")
         self.assertTrue((d == 4.0).all())
 
-    def test_tt_relu(self):
-        a = torch.ones(32 * 32, dtype=torch.bfloat16)
-        b = torch.relu(a)
-        c = torch.relu(a.to("tt"))
-        self.assertTrue(torch.allclose(b, c.to("cpu"), rtol=1e-2))
+    def test_tt_eltwise(self):
+        for func in [torch.relu, torch.cos]:
+            a = torch.ones(32 * 32, dtype=torch.bfloat16)
+            b = func(a)
+            c = func(a.to("tt"))
+            self.assertTrue(torch.allclose(b, c.to("cpu"), rtol=1e-2))
 
     def test_tt_mm(self):
         # First test with non-transposed matrices
