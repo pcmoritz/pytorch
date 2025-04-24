@@ -574,8 +574,10 @@ at::Tensor & cat_out_tt(const at::ITensorListRef & tensors, int64_t dim, at::Ten
     num_pages_per_block[i] = tensor.size(dim) * tensor.stride(dim) / constants::FACE_WIDTH;
   }
 
+  std::cout << "dim = " << dim << std::endl;
   for (int i = 0; i < out.dim(); ++i) {
     std::cout << "out.size[" << i << "] = " << out.size(i) << std::endl;
+    std::cout << "out.stride[" << i << "] = " << out.stride(i) << std::endl;
   }
 
   auto* allocator = at::tt::GetTTAllocator();
@@ -610,7 +612,7 @@ at::Tensor & cat_out_tt(const at::ITensorListRef & tensors, int64_t dim, at::Ten
   auto writer_id = tt_metal::CreateKernel(
     program,
     // TODO: The path is currently hard-coded, figure out how to fix it
-    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/index_select_writer_row_major.cpp",
+    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/writer_cat_row_major.cpp",
     all_device_cores,
     tt_metal::DataMovementConfig{
         .processor = DataMovementProcessor::RISCV_0,
@@ -619,7 +621,7 @@ at::Tensor & cat_out_tt(const at::ITensorListRef & tensors, int64_t dim, at::Ten
 
   std::vector<uint32_t> common_writer_args = {(uint32_t)dim, 0, 0, 0, 0, output->address(), l1_buffer->address()};
   for (int i = 0; i < num_tensors; ++i) {
-    auto src = allocator->get_buffer(inputs[i].get()->data_ptr());
+    auto src = allocator->get_buffer(inputs[i].get().data_ptr());
     common_writer_args.push_back(src->address());
   }
   common_writer_args.insert(common_writer_args.end(), num_pages_per_block.begin(), num_pages_per_block.end());

@@ -25,6 +25,8 @@ void kernel_main() {
 
     const uint32_t end_page_id = start_page_id + n_pages;
 
+    constexpr uint32_t datum_size_bytes = 2;
+
     uint8_t src_addr_gens_memblk[sizeof(InterleavedAddrGen<true>) * num_tensors];
     InterleavedAddrGen<true>* src_addr_gens = reinterpret_cast<InterleavedAddrGen<true>*>(src_addr_gens_memblk);
     const InterleavedAddrGen<true> dst_addr_gen = {
@@ -37,13 +39,13 @@ void kernel_main() {
         uint32_t src_addr = arg_ptr[i];
         new (&src_addr_gens[i]) InterleavedAddrGen<true>{
             .bank_base_address = src_addr, .page_size = FACE_WIDTH};
-        num_pages_per_block[i] = arg_ptr[num_tensors + i]
+        num_pages_per_block[i] = arg_ptr[num_tensors + i];
         src_page_id[i] = arg_ptr[2 * num_tensors + i];
     }
 
     uint32_t curr_tensor = start_tensor;
     uint32_t curr_tensor_page_id = start_tensor_page_id;
-    for (uint32_t i = 0; i < num_tiles; ++i) {
+    for (uint32_t dst_page_id = start_page_id; dst_page_id < end_page_id; ++dst_page_id) {
         uint64_t src_noc_addr = get_noc_addr(src_page_id[curr_tensor], src_addr_gens[curr_tensor]);
         uint64_t dst_noc_addr = get_noc_addr(dst_page_id, dst_addr_gen);
         noc_async_read(src_noc_addr, buffer_addr, FACE_WIDTH * datum_size_bytes);
@@ -58,3 +60,4 @@ void kernel_main() {
         }
     }
 }
+
