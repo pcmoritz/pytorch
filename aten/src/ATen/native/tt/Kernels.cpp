@@ -132,6 +132,17 @@ enum class UnaryOpType {
   RELU,
 };
 
+static std::map<std::string, std::string> get_unary_op_defines(UnaryOpType op) {
+  switch (op) {
+  case UnaryOpType::COS:
+    return {{"SFPU_OP_CHAIN_0", "cos_tile_init(); cos_tile(0);"}};
+  case UnaryOpType::RELU:
+    return {{"SFPU_OP_RELU_FAMILY_INCLUDE", "1"}, {"SFPU_OP_CHAIN_0", "relu_tile_init(); relu_tile(0);"}};
+  default:
+    TORCH_INTERNAL_ASSERT(false, "Unrecognized UnaryOpType: ", static_cast<int64_t>(op));
+  }
+}
+
 static void EltwiseUnaryOp(UnaryOpType op, const std::shared_ptr<Buffer>& a, const std::shared_ptr<Buffer>& b, int64_t numel, IDevice* device) {
   CommandQueue& cq = device->command_queue();
   Program program = CreateProgram();
@@ -177,8 +188,7 @@ static void EltwiseUnaryOp(UnaryOpType op, const std::shared_ptr<Buffer>& a, con
       // TODO: The path is currently hard-coded, figure out how to fix it
       "/root/pytorch/aten/src/ATen/native/tt/kernels/compute/eltwise_sfpu_multi_core.cpp",
       all_device_cores,
-      ComputeConfig{.math_fidelity = math_fidelity, .math_approx_mode = false, .compile_args = compute_compile_time_args, .defines = {
-         {"SFPU_OP_RELU_FAMILY_INCLUDE", "1"}, {"SFPU_OP_CHAIN_0", "relu_tile_init(); relu_tile(0);"}}});
+      ComputeConfig{.math_fidelity = math_fidelity, .math_approx_mode = false, .compile_args = compute_compile_time_args, .defines = get_unary_op_defines(op)});
 
   constexpr bool row_major = true;
   auto [num_cores, all_cores, core_group_1, core_group_2, num_tiles_per_core_group_1, num_tiles_per_core_group_2] =
@@ -248,6 +258,20 @@ Tensor relu_tt(const Tensor& self) {
   auto b = allocator->get_buffer(out.data_ptr());
 
   EltwiseUnaryOp(UnaryOpType::RELU, a, b, self.numel(), device);
+
+  return out;
+}
+
+// COS
+
+at::Tensor & cos_out_tt(const at::Tensor & self, at::Tensor & out) {
+  auto* allocator = at::tt::GetTTAllocator();
+  auto* device = allocator->device();
+
+  auto a = allocator->get_buffer(self.data_ptr());
+  auto b = allocator->get_buffer(out.data_ptr());
+
+  EltwiseUnaryOp(UnaryOpType::COS, a, b, self.numel(), device);
 
   return out;
 }
@@ -683,10 +707,6 @@ at::Tensor & cat_out_tt(const at::ITensorListRef & tensors, int64_t dim, at::Ten
 
   Finish(cq);
 
-  return out;
-}
-
-at::Tensor & cos_out_tt(const at::Tensor & self, at::Tensor & out) {
   return out;
 }
 
