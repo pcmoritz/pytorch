@@ -1819,6 +1819,7 @@
   dispatch:
     CPU, CUDA: cos_out
     MPS: cos_out_mps
+    TT: cos_out_tt
   tags: pointwise
 
 - func: cosh(Tensor self) -> Tensor

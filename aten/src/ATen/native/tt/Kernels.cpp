@@ -1,5 +1,6 @@
 #include <ATen/ops/add_native.h>
 #include <ATen/ops/cat_native.h>
+#include <ATen/ops/cos_native.h>
 #include <ATen/ops/mul_native.h>
 #include <ATen/ops/relu_native.h>
 #include <ATen/ops/mm_native.h>
@@ -670,6 +671,10 @@ at::Tensor & cat_out_tt(const at::ITensorListRef & tensors, int64_t dim, at::Ten
 
   Finish(cq);
 
+  return out;
+}
+
+at::Tensor & cos_out_tt(const at::Tensor & self, at::Tensor & out) {
   return out;
 }
 
