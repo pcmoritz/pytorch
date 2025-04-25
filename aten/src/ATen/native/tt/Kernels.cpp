@@ -2,6 +2,7 @@
 #include <ATen/ops/cat_native.h>
 #include <ATen/ops/cos_native.h>
 #include <ATen/ops/mul_native.h>
+#include <ATen/ops/pow_native.h>
 #include <ATen/ops/relu_native.h>
 #include <ATen/ops/mm_native.h>
 #include <ATen/ops/addmm_native.h>
@@ -131,9 +132,10 @@ enum class UnaryOpType {
   COS,
   SIN,
   RELU,
+  POW,
 };
 
-static std::map<std::string, std::string> get_unary_op_defines(UnaryOpType op) {
+static std::map<std::string, std::string> get_unary_op_defines(UnaryOpType op, const std::vector<float>& params) {
   switch (op) {
   case UnaryOpType::COS:
     return {{"SFPU_OP_TRIG_FAMILY_INCLUDE", "1"}, {"SFPU_OP_CHAIN_0", "cos_tile_init(); cos_tile(0);"}};
@@ -141,12 +143,14 @@ static std::map<std::string, std::string> get_unary_op_defines(UnaryOpType op) {
     return {{"SFPU_OP_TRIG_FAMILY_INCLUDE", "1"}, {"SFPU_OP_CHAIN_0", "sin_tile_init(); sin_tile(0);"}};
   case UnaryOpType::RELU:
     return {{"SFPU_OP_RELU_FAMILY_INCLUDE", "1"}, {"SFPU_OP_CHAIN_0", "relu_tile_init(); relu_tile(0);"}};
+  case UnaryOpType::POW:
+    return {{"SFPU_OP_COMPUTE_KERNEL_API_INCLUDE", "1"}, {"SFPU_OP_CHAIN_0", std::format("power_tile_init(); power_tile(0, {}u);", (uint32_t)params[0])}};
   default:
     TORCH_INTERNAL_ASSERT(false, "Unrecognized UnaryOpType: ", static_cast<int64_t>(op));
   }
 }
 
-static void EltwiseUnaryOp(UnaryOpType op, const std::shared_ptr<Buffer>& a, const std::shared_ptr<Buffer>& b, int64_t numel, IDevice* device) {
+static void EltwiseUnaryOp(UnaryOpType op, const std::shared_ptr<Buffer>& a, const std::shared_ptr<Buffer>& b, int64_t numel, const std::vector<float>& params, IDevice* device) {
   CommandQueue& cq = device->command_queue();
   Program program = CreateProgram();
 
@@ -191,7 +195,7 @@ static void EltwiseUnaryOp(UnaryOpType op, const std::shared_ptr<Buffer>& a, con
       // TODO: The path is currently hard-coded, figure out how to fix it
       "/root/pytorch/aten/src/ATen/native/tt/kernels/compute/eltwise_sfpu_multi_core.cpp",
       all_device_cores,
-      ComputeConfig{.math_fidelity = math_fidelity, .math_approx_mode = false, .compile_args = compute_compile_time_args, .defines = get_unary_op_defines(op)});
+      ComputeConfig{.math_fidelity = math_fidelity, .math_approx_mode = false, .compile_args = compute_compile_time_args, .defines = get_unary_op_defines(op, params)});
 
   constexpr bool row_major = true;
   auto [num_cores, all_cores, core_group_1, core_group_2, num_tiles_per_core_group_1, num_tiles_per_core_group_2] =
@@ -260,7 +264,7 @@ Tensor relu_tt(const Tensor& self) {
   auto a = allocator->get_buffer(self.data_ptr());
   auto b = allocator->get_buffer(out.data_ptr());
 
-  EltwiseUnaryOp(UnaryOpType::RELU, a, b, self.numel(), device);
+  EltwiseUnaryOp(UnaryOpType::RELU, a, b, self.numel(), {}, device);
 
   return out;
 }
@@ -274,7 +278,7 @@ at::Tensor & cos_out_tt(const at::Tensor & self, at::Tensor & out) {
   auto a = allocator->get_buffer(self.data_ptr());
   auto b = allocator->get_buffer(out.data_ptr());
 
-  EltwiseUnaryOp(UnaryOpType::COS, a, b, self.numel(), device);
+  EltwiseUnaryOp(UnaryOpType::COS, a, b, self.numel(), {}, device);
 
   return out;
 }
@@ -288,7 +292,19 @@ at::Tensor& at::native::sin_out_tt(at::Tensor const& self, at::Tensor& out) {
   auto a = allocator->get_buffer(self.data_ptr());
   auto b = allocator->get_buffer(out.data_ptr());
 
-  EltwiseUnaryOp(UnaryOpType::SIN, a, b, self.numel(), device);
+  EltwiseUnaryOp(UnaryOpType::SIN, a, b, self.numel(), {}, device);
+  
+  return out;
+}
+
+at::Tensor & pow_tensor_scalar_out_tt(const at::Tensor & self, const at::Scalar & exponent, at::Tensor & out) {
+  auto* allocator = at::tt::GetTTAllocator();
+  auto* device = allocator->device();
+
+  auto a = allocator->get_buffer(self.data_ptr());
+  auto b = allocator->get_buffer(out.data_ptr());
+
+  EltwiseUnaryOp(UnaryOpType::POW, a, b, self.numel(), {exponent.to<float>()}, device);
   
   return out;
 }

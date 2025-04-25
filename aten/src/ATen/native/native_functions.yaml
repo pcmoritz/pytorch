@@ -10266,6 +10266,7 @@
     CPU, CUDA: pow_Tensor_Scalar_out
     SparseCPU, SparseCUDA: pow_out_sparse_scalar
     MPS: pow_tensor_scalar_out_mps
+    TT: pow_tensor_scalar_out_tt
   tags: pointwise
 
 - func: pow.Tensor_Scalar(Tensor self, Scalar exponent) -> Tensor
