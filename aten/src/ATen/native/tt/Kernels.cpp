@@ -168,7 +168,7 @@ static void EltwiseBinaryOp(BinaryOpType op, const std::shared_ptr<Buffer>& a, c
       SetRuntimeArgs(program, writer, core, {c->address(), num_tiles, start_tile_id});
       SetRuntimeArgs(program, compute, core, {num_tiles, 1});
     }
-  )
+  );
 
   builder.Execute();
 }
