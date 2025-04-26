@@ -38,7 +38,7 @@ static CBHandle MakeCircularBufferF32(Program& program, const CoreSpec& core, CB
   return MakeCircularBuffer(program, core, cb, n_tiles * tile_size, tile_size, DataFormat::Float32);
 }
 
-CoreRange AllDeviceCores(IDevice* device) {
+static CoreRange AllDeviceCores(IDevice* device) {
   auto grid_size = device->compute_with_storage_grid_size();
   return CoreRange({0, 0}, {grid_size.x - 1, grid_size.y - 1});
 }
@@ -61,7 +61,7 @@ public:
     SetRuntimeArgsFn set_runtime_args
   ) {
     auto reader = CreateKernel(
-      program,
+      program_,
       reader_kernel_path,
       all_device_cores_,
       DataMovementConfig{
@@ -70,7 +70,7 @@ public:
           .compile_args = reader_compile_time_args});
 
     auto writer = CreateKernel(
-      program,
+      program_,
       writer_kernel_path,
       all_device_cores_,
       DataMovementConfig{
@@ -79,15 +79,15 @@ public:
           .compile_args = writer_compile_time_args});
 
     auto compute = CreateKernel(
-      program,
+      program_,
       compute_kernel_path,
       all_device_cores_,
       ComputeConfig{.math_approx_mode = false, .compile_args = compute_compile_time_args, .defines = compute_defines});
 
+    auto grid_size = all_device_cores_.grid_size();
     auto [num_cores, all_cores, core_group_1, core_group_2, num_tiles_per_core_group_1, num_tiles_per_core_group_2] =
         split_work_to_cores(grid_size, n_tiles, true);
 
-    auto grid_size = all_device_cores_.grid_size();
     for (uint32_t i = 0, start_tile_id = 0; i < all_device_cores_.size(); i++) {
       CoreCoord core = {i % grid_size.x, i / grid_size.x};
       uint32_t num_tiles_per_core;
@@ -99,14 +99,14 @@ public:
       } else {
         num_tiles_per_core = 0;
       }
-      set_runtime_args(program, core, reader, writer, compute, num_tiles_per_core, start_tile_id);
+      set_runtime_args(program_, core, reader, writer, compute, num_tiles_per_core, start_tile_id);
       start_tile_id += num_tiles_per_core;
     }
   }
 
   CBHandle AddCircularBuffer(CBIndex cb, DataFormat format, uint32_t n_tiles) {
     const uint32_t tile_size = datum_size(format) * constants::TILE_HW;
-    return MakeCircularBuffer(program_, core, cb, n_tiles * tile_size, tile_size, format);
+    return MakeCircularBuffer(program_, all_device_cores_, cb, n_tiles * tile_size, tile_size, format);
   }
 
   void Execute() {
