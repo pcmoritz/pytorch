@@ -38,12 +38,15 @@ static CBHandle MakeCircularBufferF32(Program& program, const CoreSpec& core, CB
   return MakeCircularBuffer(program, core, cb, n_tiles * tile_size, tile_size, DataFormat::Float32);
 }
 
+CoreRange AllDeviceCores(IDevice* device) {
+  auto grid_size = device->compute_with_storage_grid_size();
+  return CoreRange({0, 0}, {grid_size.x - 1, grid_size.y - 1});
+}
+
 class ProgramBuilder {
 public:
-  ProgramBuilder(IDevice* device) : device_(device), program_(CreateProgram()) {
-    auto grid_size = device->compute_with_storage_grid_size();
-    all_device_cores_ = CoreRange({0, 0}, {grid_size.x - 1, grid_size.y - 1});
-  }
+  ProgramBuilder(IDevice* device)
+  : device_(device), program_(CreateProgram()), all_device_cores_(AllDeviceCores(device)) {}
 
   template<typename SetRuntimeArgsFn>
   void CreateKernels(
@@ -55,7 +58,7 @@ public:
     const std::vector<uint32_t>& writer_compile_time_args,
     const std::vector<uint32_t>& compute_compile_time_args,
     const std::map<std::string, std::string>& compute_defines,
-    SetRuntimeArgsFn set_runtime_args,
+    SetRuntimeArgsFn set_runtime_args
   ) {
     auto reader = CreateKernel(
       program,
