@@ -114,10 +114,7 @@ static void EltwiseBinaryOp(BinaryOpType op, const std::shared_ptr<Buffer>& a, c
       } else if (core_group_2.contains(core)) {
         num_tiles_per_core = num_tiles_per_core_group_2;
       } else {
-        SetRuntimeArgs(program, reader, core, std::array<uint32_t, 10>{0});
-        SetRuntimeArgs(program, writer, core, std::array<uint32_t, 11>{0});
-        SetRuntimeArgs(program, compute, core, std::array<uint32_t, 3>{0});
-        continue;
+	num_tiles_per_core = 0;
       }
       SetRuntimeArgs(program, reader, core, {a->address(), b->address(), num_tiles_per_core, start_tile_id});
       SetRuntimeArgs(program, writer, core, {c->address(), num_tiles_per_core, start_tile_id});
@@ -205,17 +202,14 @@ static void EltwiseUnaryOp(UnaryOpType op, const std::shared_ptr<Buffer>& a, con
   auto cores = grid_to_cores(num_cores_total, num_cores_x, num_cores_y, row_major);
   for (uint32_t i = 0, start_tile_id = 0; i < num_cores_total; i++) {
       const auto& core = cores[i];
-       uint32_t num_tiles_per_core;
+      uint32_t num_tiles_per_core;
 
       if (core_group_1.contains(core)) {
-          num_tiles_per_core = num_tiles_per_core_group_1;
+	num_tiles_per_core = num_tiles_per_core_group_1;
       } else if (core_group_2.contains(core)) {
-          num_tiles_per_core = num_tiles_per_core_group_2;
+	num_tiles_per_core = num_tiles_per_core_group_2;
       } else {
-          SetRuntimeArgs(program, reader, core, std::array<uint32_t, 10>{0});
-          SetRuntimeArgs(program, writer, core, std::array<uint32_t, 11>{0});
-          SetRuntimeArgs(program, compute, core, std::array<uint32_t, 3>{0});
-          continue;
+	num_tiles_per_core = 0;
       }
       SetRuntimeArgs(program, reader, core, {a->address(), num_tiles_per_core, start_tile_id});
       SetRuntimeArgs(program, writer, core, {b->address(), num_tiles_per_core, start_tile_id});
@@ -611,9 +605,7 @@ Tensor index_select_tt(const Tensor& self, int64_t dim, const Tensor& index) {
     } else if (core_group_2.contains(core)) {
       num_pages_per_core = num_pages_per_core_group_2;
     } else {
-      SetRuntimeArgs(program, reader_id, core, std::array<uint32_t, 3>{0});
-      SetRuntimeArgs(program, writer_id, core, std::array<uint32_t, 5>{0});
-      continue;
+      num_pages_per_core = 0;
     }
 
     std::vector<uint32_t> reader_args = {indices->address(), num_pages_per_core, start_page_id};
