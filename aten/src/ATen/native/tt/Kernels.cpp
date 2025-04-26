@@ -1,6 +1,7 @@
 #include <ATen/ops/add_native.h>
 #include <ATen/ops/cat_native.h>
 #include <ATen/ops/cos_native.h>
+#include <ATen/ops/mean_native.h>
 #include <ATen/ops/mul_native.h>
 #include <ATen/ops/pow_native.h>
 #include <ATen/ops/relu_native.h>
@@ -740,6 +741,10 @@ at::Tensor & cat_out_tt(const at::ITensorListRef & tensors, int64_t dim, at::Ten
 
   Finish(cq);
 
+  return out;
+}
+
+at::Tensor & mean_out_tt(const at::Tensor & self, at::OptionalIntArrayRef dim, bool keepdim, ::std::optional<at::ScalarType> dtype, at::Tensor & out) {
   return out;
 }
 

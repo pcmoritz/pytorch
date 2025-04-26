@@ -3961,6 +3961,7 @@
   dispatch:
     CPU, CUDA: mean_out
     MPS: mean_out_mps
+    TT: mean_out_tt
     QuantizedCPU: mean_out_quantized_cpu
 
 - func: mean.names_dim(Tensor self, Dimname[1] dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor
