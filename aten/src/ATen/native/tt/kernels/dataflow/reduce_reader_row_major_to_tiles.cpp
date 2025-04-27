@@ -1,6 +1,9 @@
 #include <stdint.h>
 #include "dataflow_api.h"
 
+constexpr uint32_t TILE_HEIGHT = 32;
+constexpr uint32_t TILE_WIDTH = 32;
+
 constexpr uint32_t FACE_HEIGHT = 16;
 constexpr uint32_t FACE_WIDTH = 16;
 
@@ -39,17 +42,19 @@ void kernel_main() {
     uint32_t num_tiles = get_arg_val<uint32_t>(1);
     uint32_t start_tile_id = get_arg_val<uint32_t>(2);
 
-    constexpr uint32_t scaler = get_compile_time_arg_val(1);
+    constexpr uint32_t datum_size_bytes = 2;
+
+    constexpr uint32_t scaler = get_compile_time_arg_val(0);
     constexpr uint32_t cb_id_in2 = 2;
     generate_mm_scaler(cb_id_in2, scaler);
 
     constexpr uint32_t cb_id_in0 = 0;
     const uint32_t tile_size_bytes = get_tile_size(cb_id_in0);
 
-    const InterleavedAddrGen<true> a = {
+    const InterleavedAddrGen<true> src = {
         .bank_base_address = src_addr, .page_size = datum_size_bytes * FACE_WIDTH};
 
-    const uint32_t end_tile_id = start_tile_id + n_tiles;
+    const uint32_t end_tile_id = start_tile_id + num_tiles;
 
     for (uint32_t i = start_tile_id; i < end_tile_id; i++) {
         cb_reserve_back(cb_id_in0, 1);
@@ -60,6 +65,6 @@ void kernel_main() {
             cb_in0_addr += FACE_WIDTH * datum_size_bytes;
         }
         noc_async_read_barrier();
-        cb_push_back(cb_in0, 1);
+        cb_push_back(cb_id_in0, 1);
     }
 }
