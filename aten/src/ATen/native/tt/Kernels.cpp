@@ -78,11 +78,12 @@ public:
           .noc = NOC::RISCV_1_default,
           .compile_args = writer_compile_time_args});
 
+    MathFidelity math_fidelity = MathFidelity::HiFi4;
     auto compute = CreateKernel(
       program_,
       compute_kernel_path,
       all_device_cores_,
-      ComputeConfig{.math_approx_mode = false, .compile_args = compute_compile_time_args, .defines = compute_defines});
+      ComputeConfig{.math_fidelity = math_fidelity, .math_approx_mode = false, .compile_args = compute_compile_time_args, .defines = compute_defines});
 
     auto grid_size = all_device_cores_.grid_size();
     auto [num_cores, all_cores, core_group_1, core_group_2, num_tiles_per_core_group_1, num_tiles_per_core_group_2] =
@@ -196,76 +197,37 @@ static std::map<std::string, std::string> get_unary_op_defines(UnaryOpType op, c
 }
 
 static void EltwiseUnaryOp(UnaryOpType op, const std::shared_ptr<Buffer>& a, const std::shared_ptr<Buffer>& b, int64_t numel, const std::vector<float>& params, IDevice* device) {
-  CommandQueue& cq = device->command_queue();
-  Program program = CreateProgram();
+  ProgramBuilder builder(device);
 
-  const uint32_t n_tiles = (numel + ::tt::constants::TILE_HW - 1) / ::tt::constants::TILE_HW;
-
-  auto grid_size = device->compute_with_storage_grid_size();
-  uint32_t num_cores_x = grid_size.x;
-  uint32_t num_cores_y = grid_size.y;
-  uint32_t num_cores_total = num_cores_x * num_cores_y;
-  auto all_device_cores = CoreRange({0, 0}, {num_cores_x - 1, num_cores_y - 1});
-
-  const uint32_t cir_buf_num_title = 2;
-  CBHandle cb_a = MakeCircularBufferBF16(program, all_device_cores, CBIndex::c_0, cir_buf_num_title);
-  CBHandle cb_b = MakeCircularBufferBF16(program, all_device_cores, CBIndex::c_1, cir_buf_num_title);
+  const uint32_t cb_num_tiles = 2;
+  builder.AddCircularBuffer(CBIndex::c_0, DataFormat::Float16_b, cb_num_tiles);
+  builder.AddCircularBuffer(CBIndex::c_1, DataFormat::Float16_b, cb_num_tiles);
 
   std::vector<uint32_t> reader_compile_time_args = {(uint32_t)CBIndex::c_0};
   std::vector<uint32_t> writer_compile_time_args = {(uint32_t)CBIndex::c_1};
   std::vector<uint32_t> compute_compile_time_args = {(uint32_t)CBIndex::c_0, (uint32_t)CBIndex::c_1};
+  auto compute_defines = get_unary_op_defines(op, params);
 
-  MathFidelity math_fidelity = MathFidelity::HiFi4;
+  const uint32_t n_tiles = (numel + ::tt::constants::TILE_HW - 1) / ::tt::constants::TILE_HW;
 
-  auto reader = CreateKernel(
-      program,
-      // TODO: The path is currently hard-coded, figure out how to fix it
-      "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/unary_eltwise_reader_row_major_to_tiles.cpp",
-      all_device_cores,
-      DataMovementConfig{
-          .processor = DataMovementProcessor::RISCV_0,
-          .noc = NOC::RISCV_0_default,
-          .compile_args = reader_compile_time_args});
-  auto writer = CreateKernel(
-      program,
-      // TODO: The path is currently hard-coded, figure out how to fix it
-      "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/eltwise_writer_row_major_to_tiles.cpp",
-      all_device_cores,
-      DataMovementConfig{
-          .processor = DataMovementProcessor::RISCV_1,
-          .noc = NOC::RISCV_1_default,
-	  .compile_args = writer_compile_time_args});
-    auto compute = CreateKernel(
-      program,
-      // TODO: The path is currently hard-coded, figure out how to fix it
-      "/root/pytorch/aten/src/ATen/native/tt/kernels/compute/eltwise_sfpu_multi_core.cpp",
-      all_device_cores,
-      ComputeConfig{.math_fidelity = math_fidelity, .math_approx_mode = false, .compile_args = compute_compile_time_args, .defines = get_unary_op_defines(op, params)});
-
-  constexpr bool row_major = true;
-  auto [num_cores, all_cores, core_group_1, core_group_2, num_tiles_per_core_group_1, num_tiles_per_core_group_2] =
-      split_work_to_cores(grid_size, n_tiles, row_major);
-
-  auto cores = grid_to_cores(num_cores_total, num_cores_x, num_cores_y, row_major);
-  for (uint32_t i = 0, start_tile_id = 0; i < num_cores_total; i++) {
-      const auto& core = cores[i];
-      uint32_t num_tiles_per_core;
-
-      if (core_group_1.contains(core)) {
-	      num_tiles_per_core = num_tiles_per_core_group_1;
-      } else if (core_group_2.contains(core)) {
-	      num_tiles_per_core = num_tiles_per_core_group_2;
-      } else {
-	      num_tiles_per_core = 0;
-      }
+  builder.CreateKernels(
+    n_tiles,
+    // TODO: The paths are currently hard-coded, figure out how to fix it
+    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/unary_eltwise_reader_row_major_to_tiles.cpp",
+    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/eltwise_writer_row_major_to_tiles.cpp",
+    "/root/pytorch/aten/src/ATen/native/tt/kernels/compute/eltwise_sfpu_multi_core.cpp",
+    reader_compile_time_args,
+    writer_compile_time_args,
+    compute_compile_time_args,
+    compute_defines,
+    [a, b](const Program& program, const CoreCoord& core, KernelHandle reader, KernelHandle writer, KernelHandle compute, uint32_t num_tiles, uint32_t start_tile_id) {
       SetRuntimeArgs(program, reader, core, {a->address(), num_tiles_per_core, start_tile_id});
       SetRuntimeArgs(program, writer, core, {b->address(), num_tiles_per_core, start_tile_id});
       SetRuntimeArgs(program, compute, core, {num_tiles_per_core, start_tile_id});
-      start_tile_id += num_tiles_per_core;
-  }
+    }
+  );
 
-  EnqueueProgram(cq, program, true);
-  Finish(cq);
+  builder.Execute();
 }
 
 // Elementwise addition
