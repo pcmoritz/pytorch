@@ -785,7 +785,7 @@ at::Tensor & mean_out_tt(const at::Tensor & self, at::OptionalIntArrayRef dim, b
     reader_compile_time_args,
     writer_compile_time_args,
     compute_compile_time_args,
-    {{}},
+    {},
     [a, b, Wt](const Program& program, const CoreCoord& core, KernelHandle reader, KernelHandle writer, KernelHandle compute, uint32_t num_rows_per_core, uint32_t start_row_id) {
       uint32_t num_tiles_per_core = num_rows_per_core * Wt;
       uint32_t start_tile_id = start_row_id * Wt;
