@@ -746,7 +746,7 @@ at::Tensor & cat_out_tt(const at::ITensorListRef & tensors, int64_t dim, at::Ten
 }
 
 at::Tensor & mean_out_tt(const at::Tensor & self, at::OptionalIntArrayRef dim, bool keepdim, ::std::optional<at::ScalarType> dtype, at::Tensor & out) {
-  bfloat16 bfloat_scale_value = bfloat16(1.0); // TODO: Put the right scale for the mean here
+  bfloat16 bfloat_scale_value = bfloat16(1.0f); // TODO: Put the right scale for the mean here
   uint32_t packed_scale_value = pack_two_bfloat16_into_uint32({bfloat_scale_value, bfloat_scale_value});
 
   uint32_t W = self.size(3);
@@ -756,6 +756,9 @@ at::Tensor & mean_out_tt(const at::Tensor & self, at::OptionalIntArrayRef dim, b
 
   uint32_t Wt = W / constants::TILE_WIDTH;
   uint32_t Ht = H / constants::TILE_HEIGHT;
+
+  auto* allocator = at::tt::GetTTAllocator();
+  auto* device = allocator->device();
 
   auto a = allocator->get_buffer(self.data_ptr());
   auto b = allocator->get_buffer(out.data_ptr());
@@ -767,7 +770,7 @@ at::Tensor & mean_out_tt(const at::Tensor & self, at::OptionalIntArrayRef dim, b
   builder.AddCircularBuffer(CBIndex::c_2, DataFormat::Float16_b, cb_num_tiles);
   builder.AddCircularBuffer(CBIndex::c_3, DataFormat::Float16_b, cb_num_tiles);
 
-  std::vector<uint32_t> reader_compile_time_args = {packed_scaler_value};
+  std::vector<uint32_t> reader_compile_time_args = {packed_scale_value};
   std::vector<uint32_t> writer_compile_time_args = {(uint32_t)CBIndex::c_3};
   std::vector<uint32_t> compute_compile_time_args = {(uint32_t)CBIndex::c_0, (uint32_t)CBIndex::c_1};
 
@@ -783,7 +786,7 @@ at::Tensor & mean_out_tt(const at::Tensor & self, at::OptionalIntArrayRef dim, b
     writer_compile_time_args,
     compute_compile_time_args,
     {{}},
-    [a, b](const Program& program, const CoreCoord& core, KernelHandle reader, KernelHandle writer, KernelHandle compute, uint32_t num_rows_per_core, uint32_t start_row_id) {
+    [a, b, Wt](const Program& program, const CoreCoord& core, KernelHandle reader, KernelHandle writer, KernelHandle compute, uint32_t num_rows_per_core, uint32_t start_row_id) {
       uint32_t num_tiles_per_core = num_rows_per_core * Wt;
       uint32_t start_tile_id = start_row_id * Wt;
       SetRuntimeArgs(program, reader, core, {a->address(), num_tiles_per_core, start_tile_id});
