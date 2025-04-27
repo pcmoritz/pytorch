@@ -221,9 +221,9 @@ static void EltwiseUnaryOp(UnaryOpType op, const std::shared_ptr<Buffer>& a, con
     compute_compile_time_args,
     compute_defines,
     [a, b](const Program& program, const CoreCoord& core, KernelHandle reader, KernelHandle writer, KernelHandle compute, uint32_t num_tiles, uint32_t start_tile_id) {
-      SetRuntimeArgs(program, reader, core, {a->address(), num_tiles_per_core, start_tile_id});
-      SetRuntimeArgs(program, writer, core, {b->address(), num_tiles_per_core, start_tile_id});
-      SetRuntimeArgs(program, compute, core, {num_tiles_per_core, start_tile_id});
+      SetRuntimeArgs(program, reader, core, {a->address(), num_tiles, start_tile_id});
+      SetRuntimeArgs(program, writer, core, {b->address(), num_tiles, start_tile_id});
+      SetRuntimeArgs(program, compute, core, {num_tiles, start_tile_id});
     }
   );
 
