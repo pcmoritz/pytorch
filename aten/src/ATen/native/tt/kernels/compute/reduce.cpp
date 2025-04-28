@@ -13,7 +13,11 @@ void MAIN {
     uint32_t Wt = get_arg_val<uint32_t>(1);
     uint32_t NC = get_arg_val<uint32_t>(2);
 
-    mm_init(tt::CBIndex::c_0, tt::CBIndex::c_2, tt::CBIndex::c_3);
+    // If we use the matrix we are taking the mean of as the second operand of the MM
+    // and transpose it, the means in the result matrix will be in the rows
+    // (i.e. consecutive) so they can be read with a single read instruction.
+    constexpr uint32_t is_b_transposed = 1;
+    mm_init(tt::CBIndex::c_2, tt::CBIndex::c_0, tt::CBIndex::c_3, is_b_transposed);
 
     cb_wait_front(tt::CBIndex::c_2, 1);  // scaler tile from the reader
     for (uint32_t nc = 0; nc < NC; nc++) {
@@ -27,7 +31,7 @@ void MAIN {
             for (uint32_t wt = 0; wt < Wt; ++wt) {
                 cb_wait_front(tt::CBIndex::c_0, onetile);
                 // REDUCE_OP is expected to come from add_define
-                matmul_tiles(tt::CBIndex::c_0, tt::CBIndex::c_2, 0, 0, 0, false);
+                matmul_tiles(tt::CBIndex::c_2, tt::CBIndex::c_0, 0, 0, 0, false);
                 cb_pop_front(tt::CBIndex::c_0, onetile);
             }
 

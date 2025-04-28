@@ -772,7 +772,7 @@ at::Tensor & mean_out_tt(const at::Tensor & self, at::OptionalIntArrayRef dim, b
 
   std::vector<uint32_t> reader_compile_time_args = {packed_scale_value};
   std::vector<uint32_t> writer_compile_time_args = {(uint32_t)CBIndex::c_3};
-  std::vector<uint32_t> compute_compile_time_args = {(uint32_t)CBIndex::c_0, (uint32_t)CBIndex::c_1};
+  std::vector<uint32_t> compute_compile_time_args = {};
 
   const uint32_t num_rows = NC * Ht;
 
