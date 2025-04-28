@@ -101,6 +101,14 @@ class TestTT(unittest.TestCase):
         c_tt = torch.cat([a.to("tt"), b.to("tt")], dim=1).to("cpu")
         self.assertTrue(torch.allclose(c, c_tt))
 
+    def test_tt_mean(self):
+        a = torch.rand(1, 1, 32, 32, dtype=torch.bfloat16)
+        b = a.mean(dim=-1)
+        b_tt = a.to("tt").mean(dim=-1).to("cpu")
+        print("b", b)
+        print("b_tt", b_tt)
+        self.assertTrue(torch.allclose(b, b_tt))
+
 if __name__ == "__main__":
     unittest.main()
 
