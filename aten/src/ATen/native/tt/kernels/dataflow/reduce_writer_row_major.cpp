@@ -34,10 +34,12 @@ void kernel_main() {
         cb_wait_front(cb_out0, 1);
         uint32_t cb_out0_addr = get_read_ptr(cb_out0);
 
-        for (uint32_t h = 0; h < TILE_HEIGHT * 2; ++h) {
-            uint64_t c_noc_addr = get_noc_addr(i * TILE_HEIGHT * 2 + h, c);
+        // Copy out only the first row of the result tile, which contains the means
+        // (all other entries of the tile are zero)
+        for (uint32_t h = 0; h < 2; ++h) {
+            uint64_t c_noc_addr = get_noc_addr(i * 2 + h, c);
             noc_async_write(cb_out0_addr, c_noc_addr, FACE_WIDTH * datum_size_bytes);
-            cb_out0_addr += FACE_WIDTH * datum_size_bytes;
+            cb_out0_addr += TILE_HEIGHT * FACE_WIDTH * datum_size_bytes;
         }
 
         // This will wait until the write is done. As an alternative, noc_async_writes_flushed()
