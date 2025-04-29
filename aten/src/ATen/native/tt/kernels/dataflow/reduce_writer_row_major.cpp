@@ -39,7 +39,7 @@ void kernel_main() {
         for (uint32_t h = 0; h < 2; ++h) {
             uint64_t c_noc_addr = get_noc_addr(i * 2 + h, c);
             noc_async_write(cb_out0_addr, c_noc_addr, FACE_WIDTH * datum_size_bytes);
-            cb_out0_addr += TILE_HEIGHT * FACE_WIDTH * datum_size_bytes;
+            cb_out0_addr += FACE_HEIGHT * FACE_WIDTH * datum_size_bytes;
         }
 
         // This will wait until the write is done. As an alternative, noc_async_writes_flushed()
