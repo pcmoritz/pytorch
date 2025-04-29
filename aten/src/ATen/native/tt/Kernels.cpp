@@ -750,16 +750,16 @@ at::Tensor & mean_out_tt(const at::Tensor & self, at::OptionalIntArrayRef dim, b
   TORCH_CHECK(keepdim == false, "Only keepdim = false currently supported (support for keepdim = true is easy to add)");
   TORCH_CHECK(dim, "dim currently needs to be specified");
   TORCH_CHECK(dim->size() == 1, "dim currently needs to be of size 1, got ", dim->size());
-  TORCH_CHECK((*dim)[0] == -1, "dim[0] currently must be -1, got dim[0] == ", (*dim)[0]);
+  int64_t d = (*dim)[0];
+  TORCH_CHECK(d == -1, "dim[0] currently must be -1, got dim[0] == ", d);
 
-  uint32_t W = self.size(3);
-  uint32_t H = self.size(2);
-  uint32_t NC = self.size(1) * self.size(0);
+  // K is the inner dimension of the reduction
+  uint32_t K = self.size(d);
+  // num_blocks is the number of matrix multiplications of shape (TILE_HEIGHT x K) by (K x 1)
+  // we need to do to compute all the means. The second operand is the constant matrix (1.0 / K).
+  uint32_t num_blocks = self.numel() / (K * constants::TILE_HEIGHT);
 
-  uint32_t Wt = W / constants::TILE_WIDTH;
-  uint32_t Ht = H / constants::TILE_HEIGHT;
-
-  bfloat16 bfloat_scale_value = bfloat16(1.0f / W);
+  bfloat16 bfloat_scale_value = bfloat16(1.0f / K);
   uint32_t packed_scale_value = pack_two_bfloat16_into_uint32({bfloat_scale_value, bfloat_scale_value});
 
   auto* allocator = at::tt::GetTTAllocator();
@@ -779,10 +779,8 @@ at::Tensor & mean_out_tt(const at::Tensor & self, at::OptionalIntArrayRef dim, b
   std::vector<uint32_t> writer_compile_time_args = {(uint32_t)CBIndex::c_3};
   std::vector<uint32_t> compute_compile_time_args = {};
 
-  const uint32_t num_rows = NC * Ht;
-
   builder.CreateKernels(
-    num_rows,
+    num_blocks,
     // TODO: The paths are currently hard-coded, figure out how to fix it
     "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/reduce_reader_row_major_to_tiles.cpp",
     "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/reduce_writer_row_major.cpp",
@@ -791,12 +789,10 @@ at::Tensor & mean_out_tt(const at::Tensor & self, at::OptionalIntArrayRef dim, b
     writer_compile_time_args,
     compute_compile_time_args,
     {},
-    [a, b, W, Wt, Ht](const Program& program, const CoreCoord& core, KernelHandle reader, KernelHandle writer, KernelHandle compute, uint32_t num_rows_per_core, uint32_t start_row_id) {
-      uint32_t num_tiles_per_core = num_rows_per_core * Ht;
-      uint32_t start_tile_id = start_row_id * Ht;
-      SetRuntimeArgs(program, reader, core, {a->address(), W, num_tiles_per_core, start_tile_id});
-      SetRuntimeArgs(program, writer, core, {b->address(), num_tiles_per_core, start_tile_id});
-      SetRuntimeArgs(program, compute, core, {num_rows_per_core, Wt, 1});
+    [a, b, K](const Program& program, const CoreCoord& core, KernelHandle reader, KernelHandle writer, KernelHandle compute, uint32_t num_blocks_per_core, uint32_t start_block_id) {
+      SetRuntimeArgs(program, reader, core, {a->address(), K, num_blocks_per_core, start_block_id});
+      SetRuntimeArgs(program, writer, core, {b->address(), num_blocks_per_core, start_block_id});
+      SetRuntimeArgs(program, compute, core, {num_blocks_per_core, K / constants::TILE_WIDTH, 1});
     }
   );
 
