@@ -746,15 +746,15 @@ at::Tensor & cat_out_tt(const at::ITensorListRef & tensors, int64_t dim, at::Ten
 }
 
 at::Tensor & mean_out_tt(const at::Tensor & self, at::OptionalIntArrayRef dim, bool keepdim, ::std::optional<at::ScalarType> dtype, at::Tensor & out) {
-  bfloat16 bfloat_scale_value = bfloat16(1.0f / 32.0f); // TODO: Put the right scale for the mean here
-  uint32_t packed_scale_value = pack_two_bfloat16_into_uint32({bfloat_scale_value, bfloat_scale_value});
-
   uint32_t W = self.size(3);
   uint32_t H = self.size(2);
   uint32_t NC = self.size(1) * self.size(0);
 
   uint32_t Wt = W / constants::TILE_WIDTH;
   uint32_t Ht = H / constants::TILE_HEIGHT;
+
+  bfloat16 bfloat_scale_value = bfloat16(1.0f / W);
+  uint32_t packed_scale_value = pack_two_bfloat16_into_uint32({bfloat_scale_value, bfloat_scale_value});
 
   auto* allocator = at::tt::GetTTAllocator();
   auto* device = allocator->device();

@@ -107,7 +107,7 @@ class TestTT(unittest.TestCase):
         b_tt = a.to("tt").mean(dim=-1).to("cpu")
         print("b", b)
         print("b_tt", b_tt)
-        self.assertTrue(torch.allclose(b, b_tt, rtol=1e-2, atol=1e-1))
+        self.assertTrue(torch.allclose(b, b_tt, rtol=1e-1))
 
 if __name__ == "__main__":
     unittest.main()
