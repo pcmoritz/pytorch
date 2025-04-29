@@ -752,7 +752,6 @@ at::Tensor & mean_out_tt(const at::Tensor & self, at::OptionalIntArrayRef dim, b
   uint32_t W = self.size(3);
   uint32_t H = self.size(2);
   uint32_t NC = self.size(1) * self.size(0);
-  uint32_t HW = H * W;
 
   uint32_t Wt = W / constants::TILE_WIDTH;
   uint32_t Ht = H / constants::TILE_HEIGHT;
@@ -786,10 +785,10 @@ at::Tensor & mean_out_tt(const at::Tensor & self, at::OptionalIntArrayRef dim, b
     writer_compile_time_args,
     compute_compile_time_args,
     {},
-    [a, b, Wt](const Program& program, const CoreCoord& core, KernelHandle reader, KernelHandle writer, KernelHandle compute, uint32_t num_rows_per_core, uint32_t start_row_id) {
-      uint32_t num_tiles_per_core = num_rows_per_core * Wt;
-      uint32_t start_tile_id = start_row_id * Wt;
-      SetRuntimeArgs(program, reader, core, {a->address(), num_tiles_per_core, start_tile_id});
+    [a, b, W, Wt, Ht](const Program& program, const CoreCoord& core, KernelHandle reader, KernelHandle writer, KernelHandle compute, uint32_t num_rows_per_core, uint32_t start_row_id) {
+      uint32_t num_tiles_per_core = num_rows_per_core * Ht;
+      uint32_t start_tile_id = start_row_id * Ht;
+      SetRuntimeArgs(program, reader, core, {a->address(), W, num_tiles_per_core, start_tile_id});
       SetRuntimeArgs(program, writer, core, {b->address(), num_tiles_per_core, start_tile_id});
       SetRuntimeArgs(program, compute, core, {num_rows_per_core, Wt, 1});
     }

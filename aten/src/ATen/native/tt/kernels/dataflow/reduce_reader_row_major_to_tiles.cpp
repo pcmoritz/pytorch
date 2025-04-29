@@ -37,9 +37,10 @@ FORCE_INLINE void generate_mm_scaler(const uint32_t cb_id, const uint32_t scaler
 
 void kernel_main() {
     uint32_t src_addr = get_arg_val<uint32_t>(0);
-    uint32_t num_tiles = get_arg_val<uint32_t>(1);
-    uint32_t start_tile_id = get_arg_val<uint32_t>(2);
-    uint32_t K = 32;
+    uint32_t K = get_arg_val<uint32_t>(1);
+    uint32_t Kt = K / TILE_WIDTH; // TODO: Unify with matmul
+    uint32_t num_tiles = get_arg_val<uint32_t>(2);
+    uint32_t start_tile_id = get_arg_val<uint32_t>(3);
 
     constexpr uint32_t datum_size_bytes = 2;
 
@@ -58,11 +59,11 @@ void kernel_main() {
     const uint32_t src_face_offset[4] = {0, FACE_WIDTH, K * FACE_HEIGHT, K * FACE_HEIGHT + FACE_WIDTH};
 
     for (uint32_t i = start_tile_id; i < end_tile_id; i++) {
+      for (uint32_t kt = 0; kt < Kt; ++kt) {
         cb_reserve_back(cb_id_in0, 1);
         uint32_t cb_in0_addr = get_write_ptr(cb_id_in0);
 	for (uint32_t f = 0; f < 4; ++f) {
 	  for (uint32_t h = 0; h < FACE_HEIGHT; ++h) {
-	    uint32_t kt = 0;
 	    uint64_t offset = 0 * TILE_HEIGHT * K + src_face_offset[f] + kt * TILE_WIDTH + K * h;
             uint64_t a_noc_addr = get_noc_addr(offset / FACE_WIDTH, src);
             noc_async_read(a_noc_addr, cb_in0_addr, FACE_WIDTH * datum_size_bytes);
@@ -71,5 +72,6 @@ void kernel_main() {
 	}
         noc_async_read_barrier();
         cb_push_back(cb_id_in0, 1);
+      }
     }
 }
