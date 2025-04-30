@@ -202,8 +202,13 @@ static std::map<std::string, std::string> get_unary_op_defines(UnaryOpType op, c
   }
 }
 
-static void EltwiseUnaryOp(UnaryOpType op, const std::shared_ptr<Buffer>& a, const std::shared_ptr<Buffer>& b, int64_t numel, const std::vector<float>& params, IDevice* device) {
+static void EltwiseUnaryOp(UnaryOpType op, const at::Tensor& a, const at::Tensor& b, const std::vector<float>& params) {
+  auto* allocator = at::tt::GetTTAllocator();
+  auto* device = allocator->device();
   ProgramBuilder builder(device);
+
+  auto a_buf = allocator->get_buffer(a.data_ptr());
+  auto b_buf = allocator->get_buffer(b.data_ptr());
 
   const uint32_t cb_num_tiles = 2;
   builder.AddCircularBuffer(CBIndex::c_0, DataFormat::Float16_b, cb_num_tiles);
@@ -214,7 +219,7 @@ static void EltwiseUnaryOp(UnaryOpType op, const std::shared_ptr<Buffer>& a, con
   std::vector<uint32_t> compute_compile_time_args = {(uint32_t)CBIndex::c_0, (uint32_t)CBIndex::c_1};
   auto compute_defines = get_unary_op_defines(op, params);
 
-  const uint32_t n_tiles = (numel + ::tt::constants::TILE_HW - 1) / ::tt::constants::TILE_HW;
+  const uint32_t n_tiles = (a.numel() + ::tt::constants::TILE_HW - 1) / ::tt::constants::TILE_HW;
 
   builder.CreateKernels(
     n_tiles,
@@ -226,9 +231,9 @@ static void EltwiseUnaryOp(UnaryOpType op, const std::shared_ptr<Buffer>& a, con
     writer_compile_time_args,
     compute_compile_time_args,
     compute_defines,
-    [a, b](const Program& program, const CoreCoord& core, KernelHandle reader, KernelHandle writer, KernelHandle compute, uint32_t num_tiles, uint32_t start_tile_id) {
-      SetRuntimeArgs(program, reader, core, {a->address(), num_tiles, start_tile_id});
-      SetRuntimeArgs(program, writer, core, {b->address(), num_tiles, start_tile_id});
+    [a_buf, b_buf](const Program& program, const CoreCoord& core, KernelHandle reader, KernelHandle writer, KernelHandle compute, uint32_t num_tiles, uint32_t start_tile_id) {
+      SetRuntimeArgs(program, reader, core, {a_buf->address(), num_tiles, start_tile_id});
+      SetRuntimeArgs(program, writer, core, {b_buf->address(), num_tiles, start_tile_id});
       SetRuntimeArgs(program, compute, core, {num_tiles, start_tile_id});
     }
   );
@@ -251,55 +256,27 @@ at::Tensor& mul_out_tt(const at::Tensor& self, const at::Tensor& other, at::Tens
 // RELU
 
 Tensor relu_tt(const Tensor& self) {
-  auto* allocator = at::tt::GetTTAllocator();
-  auto* device = allocator->device();
-
   auto out = at::empty_like(self);
-  auto a = allocator->get_buffer(self.data_ptr());
-  auto b = allocator->get_buffer(out.data_ptr());
-
-  EltwiseUnaryOp(UnaryOpType::RELU, a, b, self.numel(), {}, device);
-
+  EltwiseUnaryOp(UnaryOpType::RELU, self, out, {});
   return out;
 }
 
 // COS
 
 at::Tensor & cos_out_tt(const at::Tensor & self, at::Tensor & out) {
-  auto* allocator = at::tt::GetTTAllocator();
-  auto* device = allocator->device();
-
-  auto a = allocator->get_buffer(self.data_ptr());
-  auto b = allocator->get_buffer(out.data_ptr());
-
-  EltwiseUnaryOp(UnaryOpType::COS, a, b, self.numel(), {}, device);
-
+  EltwiseUnaryOp(UnaryOpType::COS, self, out, {});
   return out;
 }
 
 // SIN
 
 at::Tensor& at::native::sin_out_tt(at::Tensor const& self, at::Tensor& out) {
-  auto* allocator = at::tt::GetTTAllocator();
-  auto* device = allocator->device();
-
-  auto a = allocator->get_buffer(self.data_ptr());
-  auto b = allocator->get_buffer(out.data_ptr());
-
-  EltwiseUnaryOp(UnaryOpType::SIN, a, b, self.numel(), {}, device);
-  
+  EltwiseUnaryOp(UnaryOpType::SIN, self, out, {});
   return out;
 }
 
 at::Tensor & pow_tensor_scalar_out_tt(const at::Tensor & self, const at::Scalar & exponent, at::Tensor & out) {
-  auto* allocator = at::tt::GetTTAllocator();
-  auto* device = allocator->device();
-
-  auto a = allocator->get_buffer(self.data_ptr());
-  auto b = allocator->get_buffer(out.data_ptr());
-
-  EltwiseUnaryOp(UnaryOpType::POW, a, b, self.numel(), {exponent.to<float>()}, device);
-  
+  EltwiseUnaryOp(UnaryOpType::POW, self, out, {exponent.to<float>()});
   return out;
 }
 
