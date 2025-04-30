@@ -5184,6 +5184,7 @@
   dispatch:
     CPU, CUDA: rsqrt_out
     MPS: rsqrt_out_mps
+    TT: rsqrt_out_tt
   tags: pointwise
 
 - func: select.Dimname(Tensor(a) self, Dimname dim, int index) -> Tensor(a)
