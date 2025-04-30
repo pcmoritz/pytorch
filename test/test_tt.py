@@ -36,12 +36,22 @@ class TestTT(unittest.TestCase):
         d = c.to("cpu")
         self.assertTrue((d == 2.0).all())
 
+        # Test with scalar
+        c = b + 2.0
+        d = c.to("cpu")
+        self.assertTrue((d == 3.0).all())
+
     def test_tt_mul(self):
         a = 2.0 * torch.ones(64 * 32, dtype=torch.bfloat16)
         b = a.to("tt")
         c = b * b
         d = c.to("cpu")
         self.assertTrue((d == 4.0).all())
+
+        # Test with scalar
+        c = b * 3.0
+        d = c.to("cpu")
+        self.assertTrue((d == 6.0).all())
 
     def test_tt_eltwise(self):
         for func in [torch.relu, torch.cos, torch.sin]:

@@ -161,7 +161,7 @@ static void EltwiseBinaryOp(BinaryOpType op, const at::Tensor& a, const at::Tens
     defines["BINARY_ELTWISE_SCALAR_OP"] = "1";
   } else {
     auto b_buf = allocator->get_buffer(b.data_ptr());
-    b_val = b_buf.address();
+    b_val = b_buf->address();
   }
   auto c_buf = allocator->get_buffer(c.data_ptr());
 
