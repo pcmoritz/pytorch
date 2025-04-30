@@ -28,9 +28,16 @@ void MAIN {
     PACK((llk_pack_relu_config(ReluType::ZERO_RELU)));
 #endif
 
+#ifdef BINARY_ELTWISE_SCALAR_OP
+    // Wait for tile with scalar being created by the reader
+    cb_wait_front(cb_inp1, 1);
+#endif
+
     for (uint32_t block = 0; block < per_core_block_cnt; ++block) {
         cb_wait_front(cb_inp0, per_core_block_size);
+#ifndef BINARY_ELTWISE_SCALAR_OP
         cb_wait_front(cb_inp1, per_core_block_size);
+#endif
         cb_reserve_back(cb_out0, per_core_block_size);
 
         tile_regs_acquire();
@@ -50,7 +57,9 @@ void MAIN {
         tile_regs_release();
 
         cb_pop_front(cb_inp0, per_core_block_size);
+#ifndef BINARY_ELTWISE_SCALAR_OP
         cb_pop_front(cb_inp1, per_core_block_size);
+#endif
         cb_push_back(cb_out0, per_core_block_size);
     }
 }
