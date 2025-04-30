@@ -747,7 +747,6 @@ at::Tensor & cat_out_tt(const at::ITensorListRef & tensors, int64_t dim, at::Ten
 
 at::Tensor & mean_out_tt(const at::Tensor & self, at::OptionalIntArrayRef dim, bool keepdim, ::std::optional<at::ScalarType> dtype, at::Tensor & out) {
   // Currently there is a bunch of assumptions on the parameters, none of them is hard to lift
-  TORCH_CHECK(keepdim == false, "Only keepdim = false currently supported (support for keepdim = true is easy to add)");
   TORCH_CHECK(dim, "dim currently needs to be specified");
   TORCH_CHECK(dim->size() == 1, "dim currently needs to be of size 1, got ", dim->size());
   int64_t d = (*dim)[0];

@@ -64,7 +64,7 @@ void kernel_main() {
         uint32_t cb_in0_addr = get_write_ptr(cb_id_in0);
 	for (uint32_t f = 0; f < 4; ++f) {
 	  for (uint32_t h = 0; h < FACE_HEIGHT; ++h) {
-	    uint64_t offset = 0 * TILE_HEIGHT * K + src_face_offset[f] + kt * TILE_WIDTH + K * h;
+	    uint64_t offset = start_tile_id * TILE_HEIGHT * K + src_face_offset[f] + kt * TILE_WIDTH + K * h;
             uint64_t a_noc_addr = get_noc_addr(offset / FACE_WIDTH, src);
             noc_async_read(a_noc_addr, cb_in0_addr, FACE_WIDTH * datum_size_bytes);
             cb_in0_addr += FACE_WIDTH * datum_size_bytes;
