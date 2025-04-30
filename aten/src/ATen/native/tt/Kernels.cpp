@@ -57,7 +57,8 @@ public:
     const std::vector<uint32_t>& reader_compile_time_args,
     const std::vector<uint32_t>& writer_compile_time_args,
     const std::vector<uint32_t>& compute_compile_time_args,
-    const std::map<std::string, std::string>& compute_defines,
+    // The defines are shared among all kernels (reader, writer, compute) but it could be split up if needed
+    const std::map<std::string, std::string>& defines,
     SetRuntimeArgsFn set_runtime_args
   ) {
     auto reader = CreateKernel(
@@ -67,7 +68,8 @@ public:
       DataMovementConfig{
           .processor = DataMovementProcessor::RISCV_0,
           .noc = NOC::RISCV_0_default,
-          .compile_args = reader_compile_time_args});
+          .compile_args = reader_compile_time_args,
+          .defines = defines});
 
     auto writer = CreateKernel(
       program_,
@@ -76,14 +78,19 @@ public:
       DataMovementConfig{
           .processor = DataMovementProcessor::RISCV_1,
           .noc = NOC::RISCV_1_default,
-          .compile_args = writer_compile_time_args});
+          .compile_args = writer_compile_time_args,
+          .defines = defines});
 
     MathFidelity math_fidelity = MathFidelity::HiFi4;
     auto compute = CreateKernel(
       program_,
       compute_kernel_path,
       all_device_cores_,
-      ComputeConfig{.math_fidelity = math_fidelity, .math_approx_mode = false, .compile_args = compute_compile_time_args, .defines = compute_defines});
+      ComputeConfig{
+          .math_fidelity = math_fidelity,
+          .math_approx_mode = false,
+          .compile_args = compute_compile_time_args,
+          .defines = defines});
 
     auto grid_size = all_device_cores_.grid_size();
     auto [num_cores, all_cores, core_group_1, core_group_2, num_tiles_per_core_group_1, num_tiles_per_core_group_2] =
@@ -144,8 +151,18 @@ static void EltwiseBinaryOp(BinaryOpType op, const at::Tensor& a, const at::Tens
   auto* device = allocator->device();
   ProgramBuilder builder(device);
 
+  auto defines = get_binary_op_defines(op);
+  // Either the address of b if b is a tensor or a packed value if b is a scalar
+  uint32_t b_val;
   auto a_buf = allocator->get_buffer(a.data_ptr());
-  auto b_buf = allocator->get_buffer(b.data_ptr());
+  if (b.dim() == 0 && b.device().is_cpu()) {
+    auto val = bfloat16(b.item().to<float>());
+    b_val = pack_two_bfloat16_into_uint32({val, val});
+    defines["BINARY_ELTWISE_SCALAR_OP"] = "1";
+  } else {
+    auto b_buf = allocator->get_buffer(b.data_ptr());
+    b_val = b_buf.address();
+  }
   auto c_buf = allocator->get_buffer(c.data_ptr());
 
   const uint32_t cb_num_tiles = 4;
@@ -156,7 +173,6 @@ static void EltwiseBinaryOp(BinaryOpType op, const at::Tensor& a, const at::Tens
   std::vector<uint32_t> reader_compile_time_args = {(uint32_t)CBIndex::c_0, (uint32_t)CBIndex::c_1};
   std::vector<uint32_t> writer_compile_time_args = {(uint32_t)CBIndex::c_2};
   std::vector<uint32_t> compute_compile_time_args = {(uint32_t)CBIndex::c_0, (uint32_t)CBIndex::c_1, (uint32_t)CBIndex::c_2};
-  auto compute_defines = get_binary_op_defines(op);
 
   const uint32_t n_tiles = (a.numel() + ::tt::constants::TILE_HW - 1) / ::tt::constants::TILE_HW;
 
@@ -169,9 +185,9 @@ static void EltwiseBinaryOp(BinaryOpType op, const at::Tensor& a, const at::Tens
     reader_compile_time_args,
     writer_compile_time_args,
     compute_compile_time_args,
-    compute_defines,
-    [a_buf, b_buf, c_buf](const Program& program, const CoreCoord& core, KernelHandle reader, KernelHandle writer, KernelHandle compute, uint32_t num_tiles, uint32_t start_tile_id) {
-      SetRuntimeArgs(program, reader, core, {a_buf->address(), b_buf->address(), num_tiles, start_tile_id});
+    defines,
+    [a_buf, b_val, c_buf](const Program& program, const CoreCoord& core, KernelHandle reader, KernelHandle writer, KernelHandle compute, uint32_t num_tiles, uint32_t start_tile_id) {
+      SetRuntimeArgs(program, reader, core, {a_buf->address(), b_val, num_tiles, start_tile_id});
       SetRuntimeArgs(program, writer, core, {c_buf->address(), num_tiles, start_tile_id});
       SetRuntimeArgs(program, compute, core, {num_tiles, 1});
     }
@@ -217,7 +233,7 @@ static void EltwiseUnaryOp(UnaryOpType op, const at::Tensor& a, const at::Tensor
   std::vector<uint32_t> reader_compile_time_args = {(uint32_t)CBIndex::c_0};
   std::vector<uint32_t> writer_compile_time_args = {(uint32_t)CBIndex::c_1};
   std::vector<uint32_t> compute_compile_time_args = {(uint32_t)CBIndex::c_0, (uint32_t)CBIndex::c_1};
-  auto compute_defines = get_unary_op_defines(op, params);
+  auto defines = get_unary_op_defines(op, params);
 
   const uint32_t n_tiles = (a.numel() + ::tt::constants::TILE_HW - 1) / ::tt::constants::TILE_HW;
 
@@ -230,7 +246,7 @@ static void EltwiseUnaryOp(UnaryOpType op, const at::Tensor& a, const at::Tensor
     reader_compile_time_args,
     writer_compile_time_args,
     compute_compile_time_args,
-    compute_defines,
+    defines,
     [a_buf, b_buf](const Program& program, const CoreCoord& core, KernelHandle reader, KernelHandle writer, KernelHandle compute, uint32_t num_tiles, uint32_t start_tile_id) {
       SetRuntimeArgs(program, reader, core, {a_buf->address(), num_tiles, start_tile_id});
       SetRuntimeArgs(program, writer, core, {b_buf->address(), num_tiles, start_tile_id});
