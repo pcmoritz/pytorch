@@ -25,9 +25,6 @@ void kernel_main() {
     constexpr uint32_t cb_in0 = get_compile_time_arg_val(0);
     constexpr uint32_t cb_in1 = get_compile_time_arg_val(1);
 
-    // Get the tile size used in the circular buffers. We assume the
-    // circular buffers are created with the same tile size as the DRAM
-    // buffers. (Whis is most of the cases)
     const uint32_t tile_size_bytes = get_tile_size(cb_in0);
 
     const InterleavedAddrGen<true> a = {
@@ -42,30 +39,22 @@ void kernel_main() {
     // Now we loop over the assigned tiles and read them into the circular
     // buffers
     for (uint32_t i = start_tile_id; i < end_tile_id; i++) {
-        // First we make sure there is space in the circular buffers
         cb_reserve_back(cb_in0, 1);
-        cb_reserve_back(
-            cb_in1,
-            1);  // wait until we have 1 free slot. This blocks if the
-                 // other kernels cannot consume the tiles fast enough.
-                 // Deciding how large the buffer should be is a tradeoff.
+        cb_reserve_back(cb_in1, 1);
         uint32_t cb_in0_addr = get_write_ptr(cb_in0);
         uint32_t cb_in1_addr = get_write_ptr(cb_in1);
 
-	for (uint32_t h = 0; h < TILE_HEIGHT * 2; ++h) {
-	  uint64_t a_noc_addr = get_noc_addr(i * TILE_HEIGHT * 2 + h, a);
-	  noc_async_read(a_noc_addr, cb_in0_addr, FACE_WIDTH * datum_size_bytes);
-	  cb_in0_addr += FACE_WIDTH * datum_size_bytes;
-	  uint64_t b_noc_addr = get_noc_addr(i * TILE_HEIGHT * 2 + h, b);
-	  noc_async_read(b_noc_addr, cb_in1_addr, FACE_WIDTH * datum_size_bytes);
-	  cb_in1_addr += FACE_WIDTH * datum_size_bytes;
-	}
+	    for (uint32_t h = 0; h < TILE_HEIGHT * 2; ++h) {
+	        uint64_t a_noc_addr = get_noc_addr(i * TILE_HEIGHT * 2 + h, a);
+	        noc_async_read(a_noc_addr, cb_in0_addr, FACE_WIDTH * datum_size_bytes);
+	        cb_in0_addr += FACE_WIDTH * datum_size_bytes;
+	        uint64_t b_noc_addr = get_noc_addr(i * TILE_HEIGHT * 2 + h, b);
+	        noc_async_read(b_noc_addr, cb_in1_addr, FACE_WIDTH * datum_size_bytes);
+	        cb_in1_addr += FACE_WIDTH * datum_size_bytes;
+	    }
 
-        noc_async_read_barrier();  // Wait until tile reads are done
+        noc_async_read_barrier();
         cb_push_back(cb_in0, 1);
-        cb_push_back(
-            cb_in1,
-            1);  // mark the tiles as ready. From this point forward
-                 // kernels calling `cb_wait_front` will see this tile
+        cb_push_back(cb_in1, 1);
     }
 }
