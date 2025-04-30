@@ -139,7 +139,9 @@ static std::map<std::string, std::string> get_binary_op_defines(BinaryOpType op)
 }
 
 // Compute c <- a <op> b for tensors a, b, c with numel elements
-static void EltwiseBinaryOp(BinaryOpType op, const at::Tensor& a, const at::Tensor& b, const at::Tensor& c, IDevice* device) {
+static void EltwiseBinaryOp(BinaryOpType op, const at::Tensor& a, const at::Tensor& b, const at::Tensor& c) {
+  auto* allocator = at::tt::GetTTAllocator();
+  auto* device = allocator->device();
   ProgramBuilder builder(device);
 
   auto a_buf = allocator->get_buffer(a.data_ptr());
@@ -237,20 +239,12 @@ static void EltwiseUnaryOp(UnaryOpType op, const std::shared_ptr<Buffer>& a, con
 // Elementwise addition
 
 at::Tensor& add_out_tt(const at::Tensor& self, const at::Tensor& other, const at::Scalar& alpha, at::Tensor& out) {
-  auto* allocator = at::tt::GetTTAllocator();
-  auto* device = allocator->device();
-
-  EltwiseBinaryOp(BinaryOpType::ADD, self, other, out, device);
-
+  EltwiseBinaryOp(BinaryOpType::ADD, self, other, out);
   return out;
 }
 
 at::Tensor& mul_out_tt(const at::Tensor& self, const at::Tensor& other, at::Tensor& out) {
-  auto* allocator = at::tt::GetTTAllocator();
-  auto* device = allocator->device();
-
-  EltwiseBinaryOp(BinaryOpType::MUL, self, other, out, device);
-
+  EltwiseBinaryOp(BinaryOpType::MUL, self, other, out);
   return out;
 }
 
