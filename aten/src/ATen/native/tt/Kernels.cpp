@@ -139,8 +139,12 @@ static std::map<std::string, std::string> get_binary_op_defines(BinaryOpType op)
 }
 
 // Compute c <- a <op> b for tensors a, b, c with numel elements
-static void EltwiseBinaryOp(BinaryOpType op, const std::shared_ptr<Buffer>& a, const std::shared_ptr<Buffer>& b, const std::shared_ptr<Buffer>& c, int64_t numel, IDevice* device) {
+static void EltwiseBinaryOp(BinaryOpType op, const at::Tensor& a, const at::Tensor& b, const at::Tensor& c, IDevice* device) {
   ProgramBuilder builder(device);
+
+  auto a_buf = allocator->get_buffer(a.data_ptr());
+  auto b_buf = allocator->get_buffer(b.data_ptr());
+  auto c_buf = allocator->get_buffer(c.data_ptr());
 
   const uint32_t cb_num_tiles = 4;
   builder.AddCircularBuffer(CBIndex::c_0, DataFormat::Float16_b, cb_num_tiles);
@@ -152,7 +156,7 @@ static void EltwiseBinaryOp(BinaryOpType op, const std::shared_ptr<Buffer>& a, c
   std::vector<uint32_t> compute_compile_time_args = {(uint32_t)CBIndex::c_0, (uint32_t)CBIndex::c_1, (uint32_t)CBIndex::c_2};
   auto compute_defines = get_binary_op_defines(op);
 
-  const uint32_t n_tiles = (numel + ::tt::constants::TILE_HW - 1) / ::tt::constants::TILE_HW;
+  const uint32_t n_tiles = (a.numel() + ::tt::constants::TILE_HW - 1) / ::tt::constants::TILE_HW;
 
   builder.CreateKernels(
     n_tiles,
@@ -164,9 +168,9 @@ static void EltwiseBinaryOp(BinaryOpType op, const std::shared_ptr<Buffer>& a, c
     writer_compile_time_args,
     compute_compile_time_args,
     compute_defines,
-    [a, b, c](const Program& program, const CoreCoord& core, KernelHandle reader, KernelHandle writer, KernelHandle compute, uint32_t num_tiles, uint32_t start_tile_id) {
-      SetRuntimeArgs(program, reader, core, {a->address(), b->address(), num_tiles, start_tile_id});
-      SetRuntimeArgs(program, writer, core, {c->address(), num_tiles, start_tile_id});
+    [a_buf, b_buf, c_buf](const Program& program, const CoreCoord& core, KernelHandle reader, KernelHandle writer, KernelHandle compute, uint32_t num_tiles, uint32_t start_tile_id) {
+      SetRuntimeArgs(program, reader, core, {a_buf->address(), b_buf->address(), num_tiles, start_tile_id});
+      SetRuntimeArgs(program, writer, core, {c_buf->address(), num_tiles, start_tile_id});
       SetRuntimeArgs(program, compute, core, {num_tiles, 1});
     }
   );
@@ -232,28 +236,20 @@ static void EltwiseUnaryOp(UnaryOpType op, const std::shared_ptr<Buffer>& a, con
 
 // Elementwise addition
 
-at::Tensor & add_out_tt(const at::Tensor & self, const at::Tensor & other, const at::Scalar & alpha, at::Tensor & out) {
+at::Tensor& add_out_tt(const at::Tensor& self, const at::Tensor& other, const at::Scalar& alpha, at::Tensor& out) {
   auto* allocator = at::tt::GetTTAllocator();
   auto* device = allocator->device();
 
-  auto a = allocator->get_buffer(self.data_ptr());
-  auto b = allocator->get_buffer(other.data_ptr());
-  auto c = allocator->get_buffer(out.data_ptr());
-
-  EltwiseBinaryOp(BinaryOpType::ADD, a, b, c, self.numel(), device);
+  EltwiseBinaryOp(BinaryOpType::ADD, self, other, out, device);
 
   return out;
 }
 
-at::Tensor & mul_out_tt(const at::Tensor & self, const at::Tensor & other, at::Tensor & out) {
+at::Tensor& mul_out_tt(const at::Tensor& self, const at::Tensor& other, at::Tensor& out) {
   auto* allocator = at::tt::GetTTAllocator();
   auto* device = allocator->device();
 
-  auto a = allocator->get_buffer(self.data_ptr());
-  auto b = allocator->get_buffer(other.data_ptr());
-  auto c = allocator->get_buffer(out.data_ptr());
-
-  EltwiseBinaryOp(BinaryOpType::MUL, a, b, c, self.numel(), device);
+  EltwiseBinaryOp(BinaryOpType::MUL, self, other, out, device);
 
   return out;
 }
