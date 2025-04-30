@@ -159,7 +159,7 @@ static void EltwiseBinaryOp(BinaryOpType op, const std::shared_ptr<Buffer>& a, c
     // TODO: The paths are currently hard-coded, figure out how to fix it
     "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/binary_eltwise_reader_row_major_to_tiles.cpp",
     "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/eltwise_writer_row_major_to_tiles.cpp",
-    "ttnn/cpp/ttnn/operations/eltwise/binary/device/kernels/compute/eltwise_binary_kernel.cpp",
+    "/root/pytorch/aten/src/ATen/native/tt/kernels/compute/eltwise_binary_kernel.cpp",
     reader_compile_time_args,
     writer_compile_time_args,
     compute_compile_time_args,
