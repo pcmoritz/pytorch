@@ -69,6 +69,12 @@ class TestTT(unittest.TestCase):
         c = a.to("tt").pow(2)
         self.assertTrue(torch.allclose(b, c.to("cpu"), rtol=1e-2))
 
+    def test_tt_neg(self):
+        a = torch.rand(32 * 32, dtype=torch.bfloat16)
+        b = -a
+        c = -a.to("tt")
+        self.assertTrue(torch.allclose(b, c.to("cpu"), rtol=1e-2))
+
     def test_tt_mm(self):
         # First test with non-transposed matrices
         a = torch.rand(64, 128, dtype=torch.bfloat16) - 0.5

@@ -202,6 +202,7 @@ enum class UnaryOpType {
   RELU,
   POW,
   RSQRT,
+  NEG,
 };
 
 static std::map<std::string, std::string> get_unary_op_defines(UnaryOpType op, const std::vector<float>& params) {
@@ -216,6 +217,8 @@ static std::map<std::string, std::string> get_unary_op_defines(UnaryOpType op, c
     return {{"SFPU_OP_COMPUTE_KERNEL_API_INCLUDE", "1"}, {"SFPU_OP_CHAIN_0", std::format("power_tile_init(); power_tile(0, {}u);", (uint32_t)params[0])}};
   case UnaryOpType::RSQRT:
     return {{"SFPU_OP_COMPUTE_KERNEL_API_INCLUDE", "1"}, {"SFPU_OP_CHAIN_0", "rsqrt_tile_init(); rsqrt_tile(0);"}};
+  case UnaryOpType::NEG:
+    return {{"SFPU_OP_NEG_INCLUDE", "1"}, {"SFPU_OP_CHAIN_0", "negative_tile_init(); negative_tile(0);"}};
   default:
     TORCH_INTERNAL_ASSERT(false, "Unrecognized UnaryOpType: ", static_cast<int64_t>(op));
   }
@@ -305,6 +308,7 @@ at::Tensor & rsqrt_out_tt(const at::Tensor & self, at::Tensor & out) {
 }
 
 at::Tensor & neg_out_tt(const at::Tensor & self, at::Tensor & out) {
+  EltwiseUnaryOp(UnaryOpType::NEG, self, out, {});
   return out;
 }
 
