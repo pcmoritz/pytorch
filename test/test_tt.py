@@ -54,8 +54,11 @@ class TestTT(unittest.TestCase):
         self.assertTrue((d == 6.0).all())
 
     def test_tt_eltwise(self):
-        for func in [torch.relu, torch.cos, torch.sin]:
-            a = torch.rand(32 * 32, dtype=torch.bfloat16) - 0.5
+        for func in [torch.relu, torch.cos, torch.sin, torch.rsqrt]:
+            if func == torch.rsqrt:
+                a = torch.rand(32 * 32, dtype=torch.bfloat16)
+            else:
+                a = torch.rand(32 * 32, dtype=torch.bfloat16) - 0.5
             b = func(a)
             c = func(a.to("tt"))
             self.assertTrue(torch.allclose(b, c.to("cpu"), rtol=1e-2))
