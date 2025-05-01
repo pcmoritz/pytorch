@@ -304,6 +304,10 @@ at::Tensor & rsqrt_out_tt(const at::Tensor & self, at::Tensor & out) {
   return out;
 }
 
+at::Tensor & neg_out_tt(const at::Tensor & self, at::Tensor & out) {
+  return out;
+}
+
 // matmul -- this is a very naive but also simple implementation and not optimized yet at all
 at::Tensor& mm_out_tt(const at::Tensor & self, const at::Tensor & mat2, at::Tensor &result) {
   uint32_t M = self.size(0);
