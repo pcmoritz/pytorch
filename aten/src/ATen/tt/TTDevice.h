@@ -46,7 +46,7 @@ public:
 
   DataPtr allocate_with_page_size(size_t n, size_t page_size_bytes);
   ::tt::tt_metal::IDevice* device() { return device_; }
-  std::shared_ptr<::tt::tt_metal::Buffer> get_buffer(void* data) const;
+  std::shared_ptr<::tt::tt_metal::Buffer> get_buffer(const at::Tensor& tensor) const;
 
 private:
   std::unordered_map<void*, std::shared_ptr<::tt::tt_metal::Buffer>> buffers_;

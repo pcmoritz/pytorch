@@ -154,16 +154,16 @@ static void EltwiseBinaryOp(BinaryOpType op, const at::Tensor& a, const at::Tens
   auto defines = get_binary_op_defines(op);
   // Either the address of b if b is a tensor or a packed value if b is a scalar
   uint32_t b_val;
-  auto a_buf = allocator->get_buffer(a.data_ptr());
+  auto a_buf = allocator->get_buffer(a);
   if (b.dim() == 0 && b.device().is_cpu()) {
     auto val = bfloat16(b.item().to<float>());
     b_val = pack_two_bfloat16_into_uint32({val, val});
     defines["BINARY_ELTWISE_SCALAR_OP"] = "1";
   } else {
-    auto b_buf = allocator->get_buffer(b.data_ptr());
+    auto b_buf = allocator->get_buffer(b);
     b_val = b_buf->address();
   }
-  auto c_buf = allocator->get_buffer(c.data_ptr());
+  auto c_buf = allocator->get_buffer(c);
 
   const uint32_t cb_num_tiles = 4;
   builder.AddCircularBuffer(CBIndex::c_0, DataFormat::Float16_b, cb_num_tiles);
@@ -229,8 +229,8 @@ static void EltwiseUnaryOp(UnaryOpType op, const at::Tensor& a, const at::Tensor
   auto* device = allocator->device();
   ProgramBuilder builder(device);
 
-  auto a_buf = allocator->get_buffer(a.data_ptr());
-  auto b_buf = allocator->get_buffer(b.data_ptr());
+  auto a_buf = allocator->get_buffer(a);
+  auto b_buf = allocator->get_buffer(b);
 
   const uint32_t cb_num_tiles = 2;
   builder.AddCircularBuffer(CBIndex::c_0, DataFormat::Float16_b, cb_num_tiles);
@@ -337,9 +337,9 @@ at::Tensor& mm_out_tt(const at::Tensor & self, const at::Tensor & mat2, at::Tens
         num_output_tiles_per_core_group_1, num_output_tiles_per_core_group_2] =
             split_work_to_cores(grid_size, num_output_tiles_total);
 
-  auto a = allocator->get_buffer(self.data_ptr());
-  auto b = allocator->get_buffer(mat2.data_ptr());
-  auto c = allocator->get_buffer(result.data_ptr());
+  auto a = allocator->get_buffer(self);
+  auto b = allocator->get_buffer(mat2);
+  auto c = allocator->get_buffer(result);
 
   const uint32_t num_input_tiles = 2;
   CBHandle cb_a = MakeCircularBufferBF16(program, all_cores, CBIndex::c_0, num_input_tiles);
@@ -457,7 +457,7 @@ Tensor& uniform_tt_(Tensor& self, double from, double to, std::optional<Generato
   Program program = CreateProgram();
 
   const uint32_t n_tiles = (self.numel() + ::tt::constants::TILE_HW - 1) / ::tt::constants::TILE_HW;
-  auto a = allocator->get_buffer(self.data_ptr());
+  auto a = allocator->get_buffer(self);
 
   auto grid_size = device->compute_with_storage_grid_size();
   uint32_t num_cores_x = grid_size.x;
@@ -552,9 +552,9 @@ Tensor index_select_tt(const Tensor& self, int64_t dim, const Tensor& index) {
   CommandQueue& cq = device->command_queue();
   Program program = CreateProgram();
 
-  auto input = allocator->get_buffer(self.data_ptr());
-  auto output = allocator->get_buffer(out.data_ptr());
-  auto indices = allocator->get_buffer(index.data_ptr());
+  auto input = allocator->get_buffer(self);
+  auto output = allocator->get_buffer(out);
+  auto indices = allocator->get_buffer(index);
 
   auto grid_size = device->compute_with_storage_grid_size();
   uint32_t num_cores_x = grid_size.x;
@@ -649,7 +649,7 @@ at::Tensor & cat_out_tt(const at::ITensorListRef & tensors, int64_t dim, at::Ten
   CommandQueue& cq = device->command_queue();
   Program program = CreateProgram();
 
-  auto output = allocator->get_buffer(out.data_ptr());
+  auto output = allocator->get_buffer(out);
 
   auto grid_size = device->compute_with_storage_grid_size();
   uint32_t num_cores_x = grid_size.x;
@@ -685,7 +685,7 @@ at::Tensor & cat_out_tt(const at::ITensorListRef & tensors, int64_t dim, at::Ten
 
   std::vector<uint32_t> common_writer_args = {(uint32_t)dim, 0, 0, 0, 0, output->address(), l1_buffer->address()};
   for (int i = 0; i < num_tensors; ++i) {
-    auto src = allocator->get_buffer(inputs[i].get().data_ptr());
+    auto src = allocator->get_buffer(inputs[i].get());
     common_writer_args.push_back(src->address());
   }
   common_writer_args.insert(common_writer_args.end(), num_pages_per_block.begin(), num_pages_per_block.end());
@@ -763,8 +763,8 @@ at::Tensor & mean_out_tt(const at::Tensor & self, at::OptionalIntArrayRef dim, b
   auto* allocator = at::tt::GetTTAllocator();
   auto* device = allocator->device();
 
-  auto a = allocator->get_buffer(self.data_ptr());
-  auto b = allocator->get_buffer(out.data_ptr());
+  auto a = allocator->get_buffer(self);
+  auto b = allocator->get_buffer(out);
 
   ProgramBuilder builder(device);
 

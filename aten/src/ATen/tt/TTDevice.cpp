@@ -5,6 +5,8 @@
 
 #include <tt-metalium/host_api.hpp>
 
+#include <ATen/ATen.h>
+
 using namespace tt;
 using namespace tt::tt_metal;
 
@@ -44,8 +46,8 @@ void TTAllocator::copy_data(void* dest, const void* src, std::size_t count) cons
   AT_ASSERT(false);
 }
 
-std::shared_ptr<Buffer> TTAllocator::get_buffer(void* data) const {
-  auto it = buffers_.find(data);
+std::shared_ptr<Buffer> TTAllocator::get_buffer(const at::Tensor& tensor) const {
+  auto it = buffers_.find(tensor.data_ptr());
   AT_ASSERT(it != buffers_.end());
   return it->second;
 }
