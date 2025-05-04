@@ -51,7 +51,9 @@ std::shared_ptr<Buffer> TTAllocator::get_buffer(const at::Tensor& tensor) const 
   auto it = buffers_.find(tensor.data_ptr());
   if (it == buffers_.end()) {
     AT_ASSERT(tensor.storage_offset() != 0);
-    auto src_buf = get_buffer(tensor.storage().data_ptr());
+    auto src_it = buffers_.find(tensor.storage().data_ptr().get());
+    AT_ASSERT(src_it != buffers_.end());
+    auto src_buf = src_it->second;
     // In this case we make a copy of the tensor starting at storage_offset.
     // Once we make the kernels support such offsets, this copy can be removed.
     auto new_tensor = at::empty_like(tensor);
