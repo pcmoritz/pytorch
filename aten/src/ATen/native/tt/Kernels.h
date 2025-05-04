@@ -4,6 +4,6 @@
 
 namespace at::native {
 
-void MemcpyOp(const at::Tensor& a, const at::Tensor& b);
+void MemcpyFromOffset(const at::Tensor& dst, const std::shared_ptr<Buffer>& src_buf, int64_t src_offset);
 
 }
