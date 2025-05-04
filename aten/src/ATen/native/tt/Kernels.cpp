@@ -84,15 +84,18 @@ public:
           .defines = defines});
 
     MathFidelity math_fidelity = MathFidelity::HiFi4;
-    auto compute = CreateKernel(
-      program_,
-      compute_kernel_path,
-      all_device_cores_,
-      ComputeConfig{
+    KernelHandle compute;
+    if (!compute_kernel_path.empty()) {
+      compute = CreateKernel(
+        program_,
+        compute_kernel_path,
+        all_device_cores_,
+        ComputeConfig{
           .math_fidelity = math_fidelity,
           .math_approx_mode = false,
           .compile_args = compute_compile_time_args,
           .defines = defines});
+    }
 
     auto grid_size = all_device_cores_.grid_size();
     auto [num_cores, all_cores, core_group_1, core_group_2, num_tiles_per_core_group_1, num_tiles_per_core_group_2] =

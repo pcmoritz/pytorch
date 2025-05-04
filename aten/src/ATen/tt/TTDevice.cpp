@@ -6,6 +6,7 @@
 #include <tt-metalium/host_api.hpp>
 
 #include <ATen/ATen.h>
+#include <ATen/native/tt/Kernels.h>
 
 using namespace tt;
 using namespace tt::tt_metal;
@@ -53,6 +54,7 @@ std::shared_ptr<Buffer> TTAllocator::get_buffer(const at::Tensor& tensor) const 
     // In this case we make a copy of the tensor starting at storage_offset.
     // Once we make the kernels support such offsets, this copy can be removed.
     auto t = at::empty_like(tensor);
+    // native::MemcpyOp(tensor, t);
     return get_buffer(t);
   }
   return it->second;
