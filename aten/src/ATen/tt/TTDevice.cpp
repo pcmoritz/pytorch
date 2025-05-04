@@ -48,7 +48,13 @@ void TTAllocator::copy_data(void* dest, const void* src, std::size_t count) cons
 
 std::shared_ptr<Buffer> TTAllocator::get_buffer(const at::Tensor& tensor) const {
   auto it = buffers_.find(tensor.data_ptr());
-  AT_ASSERT(it != buffers_.end());
+  if (it == buffers_.end()) {
+    AT_ASSERT(tensor.storage_offset() != 0);
+    // In this case we make a copy of the tensor starting at storage_offset.
+    // Once we make the kernels support such offsets, this copy can be removed.
+    auto t = at::empty_like(tensor);
+    return get_buffer(t);
+  }
   return it->second;
 }
 
