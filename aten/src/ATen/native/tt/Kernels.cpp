@@ -799,6 +799,41 @@ at::Tensor & mean_out_tt(const at::Tensor & self, at::OptionalIntArrayRef dim, b
   return out;
 }
 
+void MemcpyOp(const at::Tensor& a, const at::Tensor& b) {
+  auto* allocator = at::tt::GetTTAllocator();
+  auto* device = allocator->device();
+  ProgramBuilder builder(device);
+
+  auto a_buf = allocator->get_buffer(a);
+  auto b_buf = allocator->get_buffer(b);
+
+  const uint32_t cb_num_tiles = 2;
+  builder.AddCircularBuffer(CBIndex::c_0, DataFormat::Float16_b, cb_num_tiles);
+
+  std::vector<uint32_t> reader_compile_time_args = {(uint32_t)CBIndex::c_0};
+  std::vector<uint32_t> writer_compile_time_args = {(uint32_t)CBIndex::c_0};
+
+  const uint32_t n_tiles = (a.numel() + ::tt::constants::TILE_HW - 1) / ::tt::constants::TILE_HW;
+
+  builder.CreateKernels(
+    n_tiles,
+    // TODO: The paths are currently hard-coded, figure out how to fix it
+    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/memcpy_reader.cpp",
+    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/memcpy_writer.cpp",
+    "",
+    reader_compile_time_args,
+    writer_compile_time_args,
+    {},
+    {{}},
+    [a_buf, b_buf](const Program& program, const CoreCoord& core, KernelHandle reader, KernelHandle writer, KernelHandle compute, uint32_t num_tiles, uint32_t start_tile_id) {
+      SetRuntimeArgs(program, reader, core, {a_buf->address(), num_tiles, start_tile_id});
+      SetRuntimeArgs(program, writer, core, {b_buf->address(), num_tiles, start_tile_id});
+    }
+  );
+
+  builder.Execute();
+}
+
 // static void sum_kernel_tt(TensorIterator& iter) {
 // }
 
