@@ -12,6 +12,8 @@
 #include <tt-metalium/host_api.hpp>
 #include <tt-metalium/work_split.hpp>
 
+#include <ATen/native/tt/Kernels.h>
+
 #include <ATen/ATen.h>
 #include <ATen/native/Resize.h>
 
