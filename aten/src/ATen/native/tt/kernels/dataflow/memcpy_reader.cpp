@@ -30,7 +30,7 @@ void kernel_main() {
         uint32_t bytes_written = 0;
         while (bytes_written < tile_size_bytes) {
             uint32_t bytes_to_write = min(page_size_bytes - current_offset_in_page, tile_size_bytes - bytes_written);
-            uint32_t src_noc_addr = get_noc_addr(current_page_idx, src, current_offset_in_page);
+            uint64_t src_noc_addr = get_noc_addr(current_page_idx, src, current_offset_in_page);
             noc_async_read(src_noc_addr, cb_in_addr, bytes_to_write);
             bytes_written += bytes_to_write;
             cb_in_addr += bytes_to_write;
