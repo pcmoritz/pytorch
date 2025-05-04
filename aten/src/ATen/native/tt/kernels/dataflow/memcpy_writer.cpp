@@ -27,7 +27,7 @@ void kernel_main() {
         uint32_t cb_out_addr = get_read_ptr(cb_out);
         uint32_t bytes_read = 0;
         while (bytes_read < tile_size_bytes) {
-            uint32_t dst_noc_addr = get_noc_addr(current_page_idx, dst);
+            uint64_t dst_noc_addr = get_noc_addr(current_page_idx, dst);
             noc_async_write(cb_out_addr, dst_noc_addr, page_size_bytes);
             bytes_read += page_size_bytes;
             cb_out_addr += page_size_bytes;

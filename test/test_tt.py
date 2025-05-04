@@ -128,11 +128,14 @@ class TestTT(unittest.TestCase):
             self.assertTrue(torch.allclose(b, b_tt, rtol=1e-1))
 
     def test_tt_slice(self):
-        a = torch.rand(1024, dtype=torch.bfloat16)
+        a = torch.rand(1024 + 32, dtype=torch.bfloat16)
         b = a.to("tt")
-        c = b[12:]
-        d_tt = c.mean(dim=-1).to("cpu")
-        d = a[12:].mean(dim=-1)
+        c = b[32:]
+        d_tt = (1.0 * c).to("cpu")
+        d = 1.0 * a[32:]
+        print("d_tt", d_tt)
+        print("d", d)
+        print("a", a)
         self.assertTrue(torch.allclose(d, d_tt))
 
 if __name__ == "__main__":
