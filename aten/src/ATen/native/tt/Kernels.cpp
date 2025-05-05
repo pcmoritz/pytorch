@@ -840,7 +840,7 @@ void MemcpyWithOffsets(uint32_t dst_addr, uint32_t dst_offset, uint32_t src_addr
     writer_compile_time_args,
     {},
     {},
-    [src_buf, src_offset, dst_buf](const Program& program, const CoreCoord& core, KernelHandle reader, KernelHandle writer, KernelHandle compute, uint32_t num_tiles, uint32_t start_tile_id) {
+    [src_addr, src_offset, dst_addr, dst_offset](const Program& program, const CoreCoord& core, KernelHandle reader, KernelHandle writer, KernelHandle compute, uint32_t num_tiles, uint32_t start_tile_id) {
       SetRuntimeArgs(program, reader, core, {src_addr, src_offset, num_tiles, start_tile_id});
       SetRuntimeArgs(program, writer, core, {dst_addr, dst_offset, num_tiles, start_tile_id});
     }

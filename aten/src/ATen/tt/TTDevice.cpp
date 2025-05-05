@@ -56,11 +56,11 @@ std::shared_ptr<Buffer> TTAllocator::get_buffer(const at::Tensor& tensor) const 
     auto new_tensor = at::empty_like(tensor);
     uint32_t num_tiles = (tensor.numel() + ::tt::constants::TILE_HW - 1) / ::tt::constants::TILE_HW;
     native::MemcpyWithOffsets(
-      new_tensor.storage().data_ptr().get(),
+      (uintptr_t)new_tensor.storage().data_ptr().get(),
       new_tensor.element_size() * new_tensor.storage_offset(),
-      tensor.storage().data_ptr().get(),
+      (uintptr_t)tensor.storage().data_ptr().get(),
       tensor.element_size() * tensor.storage_offset(),
-      num_tiles,
+      num_tiles
     );
     return get_buffer(new_tensor);
   }

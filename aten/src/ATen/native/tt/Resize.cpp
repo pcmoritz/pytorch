@@ -2,12 +2,13 @@
 
 #include <tt-metalium/host_api.hpp>
 
+#include <ATen/native/tt/Kernels.h>
 #include <ATen/native/ResizeCommon.h>
 #include <ATen/tt/TTDevice.h>
 
 namespace at::native {
 
-static void resize_bytes_tt(StorageImpl* storage, size_t size_bytes, size_t page_size) {
+static void resize_bytes_tt(StorageImpl* storage, size_t size_bytes, size_t storage_offset, size_t itemsize, size_t page_size) {
   TORCH_CHECK(storage->resizable(), "Trying to resize storage that is not resizable");
   // auto allocator = storage->allocator();
   auto* allocator = at::tt::GetTTAllocator();
@@ -23,27 +24,25 @@ static void resize_bytes_tt(StorageImpl* storage, size_t size_bytes, size_t page
 
   // c10::cuda::CUDAGuard guard(device.index());
   at::DataPtr data = allocator->allocate_with_page_size(size_bytes, page_size);
-  // if (storage->data_ptr()) {
-  //  at::globalContext().lazyInitDevice(c10::DeviceType::CUDA);
-  //
-  // TODO(pcm): Adapt MemcpyFromOffset to be able to handle an offset for both source
-  // and destination and replace the following call.
-  //
-  //  C10_CUDA_CHECK(
-  //      cudaMemcpyAsync(
-  //          data.get(),
-  //          storage->data(),
-  //          std::min(storage->nbytes(), size_bytes),
-  //          cudaMemcpyDeviceToDevice,
-  //          c10::cuda::getCurrentCUDAStream()));
-  // }
+  if (storage->data_ptr()) {
+    // at::globalContext().lazyInitDevice(c10::DeviceType::CUDA);
+    uint32_t tile_size = ::tt::constants::TILE_HW * itemsize;
+    uint32_t num_tiles = (std::min(storage->nbytes(), size_bytes) + tile_size - 1) / tile_size;
+    MemcpyWithOffsets(
+      (uintptr_t)data.get(),
+      storage_offset * itemsize,
+      (uintptr_t)storage->data(),
+      storage_offset * itemsize,
+      num_tiles
+    );
+  }
 
   // Destructively overwrite data_ptr
   storage->set_data_ptr_noswap(std::move(data));
   storage->set_nbytes(size_bytes);
 }
 
-static inline void maybe_resize_storage_tt(TensorImpl* self, size_t new_size_bytes, size_t page_size) {
+static inline void maybe_resize_storage_tt(TensorImpl* self, size_t new_size_bytes, size_t storage_offset, size_t page_size) {
   // It does not make sense to try to resize a storage
   // to hold 0 elements, and this can break
   // if storage_offset is positive but
@@ -56,7 +55,7 @@ static inline void maybe_resize_storage_tt(TensorImpl* self, size_t new_size_byt
   const Storage &storage = self->unsafe_storage();
   TORCH_CHECK(storage, "Tensor: invalid null storage");
   if (new_size_bytes > storage.nbytes()) {
-    resize_bytes_tt(storage.unsafeGetStorageImpl(), new_size_bytes, page_size);
+    resize_bytes_tt(storage.unsafeGetStorageImpl(), new_size_bytes, storage_offset, self->itemsize(), page_size);
   }
 }
 
@@ -83,7 +82,7 @@ inline TensorImpl* resize_impl_tt_(
   size_t tile_size_bytes = ::tt::constants::TILE_HW * itemsize;
   storage_size = ((storage_size + tile_size_bytes - 1) / tile_size_bytes) * tile_size_bytes;
   size_t page_size = itemsize * ::tt::constants::FACE_WIDTH;
-  maybe_resize_storage_tt(self, storage_size, page_size);
+  maybe_resize_storage_tt(self, storage_size, storage_offset, page_size);
 
   return self;
 }
