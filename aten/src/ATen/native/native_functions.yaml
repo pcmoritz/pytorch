@@ -2705,6 +2705,7 @@
   dispatch:
     CPU, CUDA: fill_
     MPS: fill_scalar_mps
+    TT: fill_scalar_tt
     QuantizedCPU, QuantizedCUDA: fill_quantized_
     Meta: fill_meta_
     SparseCsrCPU, SparseCsrCUDA, SparseCsrMeta: fill_sparse_csr_
