@@ -26,6 +26,9 @@ static void resize_bytes_tt(StorageImpl* storage, size_t size_bytes, size_t page
   // if (storage->data_ptr()) {
   //  at::globalContext().lazyInitDevice(c10::DeviceType::CUDA);
   //
+  // TODO(pcm): Adapt MemcpyFromOffset to be able to handle an offset for both source
+  // and destination and replace the following call.
+  //
   //  C10_CUDA_CHECK(
   //      cudaMemcpyAsync(
   //          data.get(),
