@@ -69,6 +69,14 @@ class TestTT(unittest.TestCase):
         c = a.to("tt").pow(2)
         self.assertTrue(torch.allclose(b, c.to("cpu"), rtol=1e-2))
 
+    def test_tt_fill(self):
+        a = torch.rand(32 * 32, dtype=torch.bfloat16)
+        a.fill_(1.0)
+        a_tt = torch.rand(32 * 32, dtype=torch.bfloat16, device="tt")
+        a_tt.fill_(1.0)
+        a_tt = a_tt.to("cpu")
+        self.assertTrue(torch.allclose(a, a_tt))
+
     def test_tt_neg(self):
         a = torch.rand(32 * 32, dtype=torch.bfloat16)
         b = -a
