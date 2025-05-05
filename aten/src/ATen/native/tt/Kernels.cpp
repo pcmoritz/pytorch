@@ -819,12 +819,10 @@ at::Tensor & tril_tt_out(const at::Tensor & self, int64_t diagonal, at::Tensor &
   return out;
 }
 
-void MemcpyFromOffset(const at::Tensor& dst, const std::shared_ptr<Buffer>& src_buf, int64_t src_offset) {
+void MemcpyWithOffsets(uint32_t dst_addr, uint32_t dst_offset, uint32_t src_addr, uint32_t src_offset, uint32_t num_tiles) {
   auto* allocator = at::tt::GetTTAllocator();
   auto* device = allocator->device();
   ProgramBuilder builder(device);
-
-  auto dst_buf = allocator->get_buffer(dst);
 
   const uint32_t cb_num_tiles = 2;
   builder.AddCircularBuffer(CBIndex::c_0, DataFormat::Float16_b, cb_num_tiles);
@@ -832,10 +830,8 @@ void MemcpyFromOffset(const at::Tensor& dst, const std::shared_ptr<Buffer>& src_
   std::vector<uint32_t> reader_compile_time_args = {(uint32_t)CBIndex::c_0};
   std::vector<uint32_t> writer_compile_time_args = {(uint32_t)CBIndex::c_0};
 
-  const uint32_t n_tiles = (dst.numel() + ::tt::constants::TILE_HW - 1) / ::tt::constants::TILE_HW;
-
   builder.CreateKernels(
-    n_tiles,
+    num_tiles,
     // TODO: The paths are currently hard-coded, figure out how to fix it
     "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/memcpy_reader.cpp",
     "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/memcpy_writer.cpp",
@@ -845,8 +841,8 @@ void MemcpyFromOffset(const at::Tensor& dst, const std::shared_ptr<Buffer>& src_
     {},
     {},
     [src_buf, src_offset, dst_buf](const Program& program, const CoreCoord& core, KernelHandle reader, KernelHandle writer, KernelHandle compute, uint32_t num_tiles, uint32_t start_tile_id) {
-      SetRuntimeArgs(program, reader, core, {src_buf->address(), static_cast<uint32_t>(src_offset), num_tiles, start_tile_id});
-      SetRuntimeArgs(program, writer, core, {dst_buf->address(), 0, num_tiles, start_tile_id});
+      SetRuntimeArgs(program, reader, core, {src_addr, src_offset, num_tiles, start_tile_id});
+      SetRuntimeArgs(program, writer, core, {dst_addr, dst_offset, num_tiles, start_tile_id});
     }
   );
 

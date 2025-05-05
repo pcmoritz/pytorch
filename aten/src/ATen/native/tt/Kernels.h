@@ -1,9 +1,7 @@
 #pragma once
 
-#include <ATen/ATen.h>
-
 namespace at::native {
 
-void MemcpyFromOffset(const at::Tensor& dst, const std::shared_ptr<::tt::tt_metal::Buffer>& src_buf, int64_t src_offset);
+void MemcpyWithOffsets(uint32_t dst_addr, uint32_t dst_offset, uint32_t src_addr, uint32_t src_offset, uint32_t num_tiles);
 
 }

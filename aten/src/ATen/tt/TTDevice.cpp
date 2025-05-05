@@ -51,13 +51,17 @@ std::shared_ptr<Buffer> TTAllocator::get_buffer(const at::Tensor& tensor) const 
   auto it = buffers_.find(tensor.data_ptr());
   if (it == buffers_.end()) {
     AT_ASSERT(tensor.storage_offset() != 0);
-    auto src_it = buffers_.find(tensor.storage().data_ptr().get());
-    AT_ASSERT(src_it != buffers_.end());
-    auto src_buf = src_it->second;
     // In this case we make a copy of the tensor starting at storage_offset.
     // Once we make the kernels support such offsets, this copy can be removed.
     auto new_tensor = at::empty_like(tensor);
-    native::MemcpyFromOffset(new_tensor, src_buf, tensor.element_size() * tensor.storage_offset());
+    uint32_t num_tiles = (tensor.numel() + ::tt::constants::TILE_HW - 1) / ::tt::constants::TILE_HW;
+    native::MemcpyWithOffsets(
+      new_tensor.storage().data_ptr().get(),
+      new_tensor.element_size() * new_tensor.storage_offset(),
+      tensor.storage().data_ptr().get(),
+      tensor.element_size() * tensor.storage_offset(),
+      num_tiles,
+    );
     return get_buffer(new_tensor);
   }
   return it->second;
