@@ -1,8 +1,16 @@
+#include <ATen/ops/resize_native.h>
+
+#include <tt-metalium/host_api.hpp>
+
+#include <ATen/native/ResizeCommon.h>
+#include <ATen/tt/TTDevice.h>
+
 namespace at::native {
 
-void resize_bytes_tt(StorageImpl* storage, size_t size_bytes) {
+static void resize_bytes_tt(StorageImpl* storage, size_t size_bytes, size_t page_size) {
   TORCH_CHECK(storage->resizable(), "Trying to resize storage that is not resizable");
-  auto allocator = storage->allocator();
+  // auto allocator = storage->allocator();
+  auto* allocator = at::tt::GetTTAllocator();
   TORCH_CHECK(allocator != nullptr, "Trying to resize storage without an allocator");
 
   c10::Device device = storage->device();
@@ -14,7 +22,7 @@ void resize_bytes_tt(StorageImpl* storage, size_t size_bytes) {
   }
 
   // c10::cuda::CUDAGuard guard(device.index());
-  at::DataPtr data = allocator->allocate(size_bytes);
+  at::DataPtr data = allocator->allocate_with_page_size(size_bytes, page_size);
   // if (storage->data_ptr()) {
   //  at::globalContext().lazyInitDevice(c10::DeviceType::CUDA);
   //
@@ -32,7 +40,7 @@ void resize_bytes_tt(StorageImpl* storage, size_t size_bytes) {
   storage->set_nbytes(size_bytes);
 }
 
-static inline void maybe_resize_storage_tt(TensorImpl* self, size_t new_size_bytes) {
+static inline void maybe_resize_storage_tt(TensorImpl* self, size_t new_size_bytes, size_t page_size) {
   // It does not make sense to try to resize a storage
   // to hold 0 elements, and this can break
   // if storage_offset is positive but
@@ -45,7 +53,7 @@ static inline void maybe_resize_storage_tt(TensorImpl* self, size_t new_size_byt
   const Storage &storage = self->unsafe_storage();
   TORCH_CHECK(storage, "Tensor: invalid null storage");
   if (new_size_bytes > storage.nbytes()) {
-    resize_bytes_tt(storage.unsafeGetStorageImpl(), new_size_bytes);
+    resize_bytes_tt(storage.unsafeGetStorageImpl(), new_size_bytes, page_size);
   }
 }
 
@@ -68,7 +76,11 @@ inline TensorImpl* resize_impl_tt_(
     storage_size = at::detail::computeStorageNbytesContiguous(
         size, itemsize, storage_offset);
   }
-  maybe_resize_storage_tt(self, storage_size);
+  // Make sure the memory is padded to the tile size
+  size_t tile_size_bytes = ::tt::constants::TILE_HW * itemsize;
+  storage_size = ((storage_size + tile_size_bytes - 1) / tile_size_bytes) * tile_size_bytes;
+  size_t page_size = itemsize * ::tt::constants::FACE_WIDTH;
+  maybe_resize_storage_tt(self, storage_size, page_size);
 
   return self;
 }
