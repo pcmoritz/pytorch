@@ -843,10 +843,10 @@ void MemcpyFromOffset(const at::Tensor& dst, const std::shared_ptr<Buffer>& src_
     reader_compile_time_args,
     writer_compile_time_args,
     {},
-    {{"DUMMY_DEFINE", "1"}},
+    {},
     [src_buf, src_offset, dst_buf](const Program& program, const CoreCoord& core, KernelHandle reader, KernelHandle writer, KernelHandle compute, uint32_t num_tiles, uint32_t start_tile_id) {
       SetRuntimeArgs(program, reader, core, {src_buf->address(), static_cast<uint32_t>(src_offset), num_tiles, start_tile_id});
-      SetRuntimeArgs(program, writer, core, {dst_buf->address(), num_tiles, start_tile_id});
+      SetRuntimeArgs(program, writer, core, {dst_buf->address(), 0, num_tiles, start_tile_id});
     }
   );
 
