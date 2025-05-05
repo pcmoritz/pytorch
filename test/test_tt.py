@@ -127,15 +127,19 @@ class TestTT(unittest.TestCase):
             b_tt = a.to("tt").mean(dim=-1, keepdim=keepdim).to("cpu")
             self.assertTrue(torch.allclose(b, b_tt, rtol=1e-1))
 
+        # TODO: Make this work (currently not working because of the
+        # way we distribute the computation among the blocks
+        ## a = torch.rand(1024, dtype=torch.bfloat16)
+        ## b = a.mean(dim=-1)
+        ## b_tt = a.to("tt").mean(dim=-1).to("cpu")
+        ## self.assertTrue(torch.allclose(b, b_tt, rtol=1e-1))
+
     def test_tt_slice(self):
         a = torch.rand(1024 + 32, dtype=torch.bfloat16)
         b = a.to("tt")
         c = b[32:]
         d_tt = (1.0 * c).to("cpu")
         d = 1.0 * a[32:]
-        print("d_tt", d_tt)
-        print("d", d)
-        print("a", a)
         self.assertTrue(torch.allclose(d, d_tt))
 
 if __name__ == "__main__":
