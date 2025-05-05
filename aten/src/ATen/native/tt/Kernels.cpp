@@ -208,6 +208,7 @@ enum class UnaryOpType {
   POW,
   RSQRT,
   NEG,
+  FILL,
 };
 
 static std::map<std::string, std::string> get_unary_op_defines(UnaryOpType op, const std::vector<float>& params) {
@@ -224,6 +225,8 @@ static std::map<std::string, std::string> get_unary_op_defines(UnaryOpType op, c
     return {{"SFPU_OP_COMPUTE_KERNEL_API_INCLUDE", "1"}, {"SFPU_OP_CHAIN_0", "rsqrt_tile_init(); rsqrt_tile(0);"}};
   case UnaryOpType::NEG:
     return {{"SFPU_OP_NEG_INCLUDE", "1"}, {"SFPU_OP_CHAIN_0", "negative_tile_init(); negative_tile(0);"}};
+  case UnaryOpType::FILL:
+    return {{"SFPU_OP_FILL_INCLUDE", "1"}, {"SFPU_OP_CHAIN_0", std::format("fill_tile_init(); fill_tile_bitcast(0, {}u);", std::bit_cast<uint32_t>(params[0]))}};
   default:
     TORCH_INTERNAL_ASSERT(false, "Unrecognized UnaryOpType: ", static_cast<int64_t>(op));
   }
@@ -318,6 +321,9 @@ at::Tensor & neg_out_tt(const at::Tensor & self, at::Tensor & out) {
 }
 
 at::Tensor & fill_scalar_tt(at::Tensor & self, const at::Scalar & value) {
+  // TODO: This is currently reading self as an argument, which is not neccessary.
+  // We should extend the kernel so it can skip reading the input.
+  EltwiseUnaryOp(UnaryOpType::FILL, self, self, {value.to<float>()});
   return self;
 }
 
