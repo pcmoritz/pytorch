@@ -814,6 +814,11 @@ at::Tensor & mean_out_tt(const at::Tensor & self, at::OptionalIntArrayRef dim, b
   return out;
 }
 
+at::Tensor & tril_tt_out(const at::Tensor & self, int64_t diagonal, at::Tensor & out) {
+  AT_ASSERT(false); // TODO: Implement this
+  return out;
+}
+
 void MemcpyFromOffset(const at::Tensor& dst, const std::shared_ptr<Buffer>& src_buf, int64_t src_offset) {
   auto* allocator = at::tt::GetTTAllocator();
   auto* device = allocator->device();

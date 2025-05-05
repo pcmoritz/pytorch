@@ -2469,6 +2469,7 @@
     CPU: resize_
     CUDA: resize_cuda_
     MPS: resize_mps_
+    TT: resize_tt_
     QuantizedCPU: quantized_resize_cpu_
     SparseCsrCPU, SparseCsrCUDA, SparseCsrMeta: resize_sparse_csr_
   autogen: resize, resize.out
@@ -6527,14 +6528,14 @@
   device_check: NoCheck   # TensorIterator
   variants: function, method
   dispatch:
-    CPU, CUDA, MPS: where
+    CPU, CUDA, MPS, TT: where
     NestedTensorCPU, NestedTensorCUDA: NestedTensor_where
   tags: [core, pointwise]
 
 - func: where.self_out(Tensor condition, Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)
   device_check: NoCheck   # TensorIterator
   dispatch:
-    CPU, CUDA, MPS: where_self_out
+    CPU, CUDA, MPS, TT: where_self_out
     NestedTensorCPU, NestedTensorCUDA: NestedTensor_where_out
 
 - func: where.ScalarSelf(Tensor condition, Scalar self, Tensor other) -> Tensor
@@ -8827,6 +8828,7 @@
     CPU: tril_cpu
     CUDA: tril_cuda
     MPS: tril_mps_out
+    TT: tril_tt_out
 
 - func: tril(Tensor self, int diagonal=0) -> Tensor
   structured_delegate: tril.out

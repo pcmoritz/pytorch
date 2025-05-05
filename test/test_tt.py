@@ -150,6 +150,14 @@ class TestTT(unittest.TestCase):
         d = 1.0 * a[32:]
         self.assertTrue(torch.allclose(d, d_tt))
 
+    def test_tt_where(self):
+        a = torch.rand(64, 64, dtype=torch.bfloat16) > 0.5
+        b = torch.rand(64, 64, dtype=torch.bfloat16)
+        c = torch.rand(64, 64, dtype=torch.bfloat16)
+        result = torch.where(a, b, c)
+        result_tt = torch.where(a.to("tt"), b.to("tt"), c.to("tt")).to("cpu")
+        self.assertTrue(torch.allclose(result, result_tt))
+
 if __name__ == "__main__":
     unittest.main()
 
