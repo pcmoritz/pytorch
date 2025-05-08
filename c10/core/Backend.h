@@ -50,6 +50,7 @@ enum class Backend {
   XLA,
   Vulkan,
   Metal,
+  TT,
   Meta,
   QuantizedCPU,
   QuantizedCUDA,
@@ -88,6 +89,8 @@ inline Backend dispatchKeyToBackend(DispatchKey t) {
     return Backend::Vulkan;
   } else if (t == DispatchKey::Metal) {
     return Backend::Metal;
+  } else if (t == DispatchKey::TT) {
+    return Backend::TT;
   } else if (t == DispatchKey::Meta) {
     return Backend::Meta;
   } else if (t == DispatchKey::SparseCPU) {
@@ -194,6 +197,8 @@ inline DispatchKey backendToDispatchKey(Backend b) {
       return DispatchKey::Vulkan;
     case Backend::Metal:
       return DispatchKey::Metal;
+    case Backend::TT:
+      return DispatchKey::TT;
     case Backend::Meta:
       return DispatchKey::Meta;
     case Backend::QuantizedCPU:
@@ -261,6 +266,8 @@ inline DeviceType backendToDeviceType(Backend b) {
       return DeviceType::Vulkan;
     case Backend::Metal:
       return DeviceType::Metal;
+    case Backend::TT:
+      return DeviceType::TT;
     case Backend::Meta:
       return DeviceType::Meta;
     case Backend::MPS:
@@ -335,6 +342,8 @@ inline const char* toString(Backend b) {
       return "Vulkan";
     case Backend::Metal:
       return "Metal";
+    case Backend::TT:
+      return "TT";
     case Backend::Meta:
       return "Meta";
     case Backend::QuantizedCPU:

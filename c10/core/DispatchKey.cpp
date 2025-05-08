@@ -32,6 +32,8 @@ const char* toString(BackendComponent t) {
       return "VEBit";
     case BackendComponent::MTIABit:
       return "MTIA";
+    case BackendComponent::TTBit:
+      return "TT";
     case BackendComponent::PrivateUse1Bit:
       return "PrivateUse1Bit";
     case BackendComponent::PrivateUse2Bit:
@@ -73,6 +75,8 @@ const char* toString(DispatchKey t) {
       return "Vulkan";
     case DispatchKey::Metal:
       return "Metal";
+    case DispatchKey::TT:
+      return "TT";
 
     case DispatchKey::Lazy:
       return "Lazy";
@@ -331,6 +335,7 @@ c10::DispatchKey parseDispatchKey(const std::string& k) {
       {"HPU", c10::DispatchKey::HPU},
       {"Lazy", c10::DispatchKey::Lazy},
       {"MTIA", c10::DispatchKey::MTIA},
+      {"TT", c10::DispatchKey::TT},
       {"NestedTensor", c10::DispatchKey::NestedTensor},
       {"NestedTensorCPU", c10::DispatchKey::NestedTensorCPU},
       {"NestedTensorCUDA", c10::DispatchKey::NestedTensorCUDA},

@@ -1,0 +1,44 @@
+#include <atomic>
+
+#include <ATen/Tensor.h>
+#include <ATen/tt/Context.h>
+#include <ATen/tt/TTDevice.h>
+
+#include <tt-metalium/host_api.hpp>
+
+using namespace tt;
+using namespace tt::tt_metal;
+
+namespace at {
+namespace tt {
+
+at::Tensor& tt_copy_(at::Tensor& self, const at::Tensor& src) {
+  auto* allocator = GetTTAllocator();
+  CommandQueue& cq = allocator->device()->command_queue();
+  if (src.device().type() == at::kCPU) {
+    auto cpu_tensor_contiguous = src.contiguous();
+    EnqueueWriteBuffer(cq, allocator->get_buffer(self), cpu_tensor_contiguous.data_ptr(), false);
+    Finish(cq);
+  }
+  else if (self.device().type() == at::kCPU) {
+    AT_ASSERT(self.is_contiguous());
+    // We need to make sure to not copy the extra padding in the TT tensor to the CPU
+    // So currently we make a copy :(
+    std::vector<bfloat16> data;
+    EnqueueReadBuffer(cq, allocator->get_buffer(src), data, true);
+    Finish(cq);
+    std::memcpy(self.mutable_data_ptr(), &data[0], self.nbytes());
+  } else {
+    // TODO: Implement copy TT -> TT
+  }
+  return self;
+}
+} // namespace tt
+
+namespace native {
+bool is_tt_available() {
+  return true;
+}
+
+} // namespace native
+} // namespace at

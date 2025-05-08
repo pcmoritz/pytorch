@@ -92,6 +92,11 @@ struct C10_API Device final {
     return type_ == DeviceType::MPS;
   }
 
+  /// Return true if the device is of TT type.
+  bool is_tt() const noexcept {
+    return type_ == DeviceType::TT;
+  }
+
   /// Return true if the device is of HIP type.
   bool is_hip() const noexcept {
     return type_ == DeviceType::HIP;
