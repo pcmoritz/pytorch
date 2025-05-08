@@ -3,10 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <cstdint>
+#include "compute_kernel_api.h"
 #include "compute_kernel_api/common.h"
 #include "compute_kernel_api/tile_move_copy.h"
-#include "compute_kernel_api/eltwise_unary/eltwise_unary.h"
-#include "compute_kernel_api/eltwise_unary/sfpu_split_includes.h"
+#include "compute_kernel_api/eltwise_binary.h"
 
 void gtz_block(uint32_t in_cb, uint32_t out_cb, uint32_t num_tiles) {
     // Precondition: in_cb has num_tiles produced
@@ -101,8 +101,6 @@ void MAIN {
     constexpr auto cb_tmp2 = tt::CBIndex::c_17;
 
     constexpr auto cb_out0 = get_compile_time_arg_val(3);
-
-    init_sfpu(cb_in0, cb_out0);
 
     // Calculate the range of tiles this core should process
     const uint32_t end_tile_id = start_tile_id + n_tiles;

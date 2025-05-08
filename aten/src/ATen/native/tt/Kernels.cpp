@@ -841,7 +841,7 @@ static void where_kernel_tt(TensorIterator& iter) {
   std::vector<uint32_t> writer_compile_time_args = {(uint32_t)CBIndex::c_3};
   std::vector<uint32_t> compute_compile_time_args = {(uint32_t)CBIndex::c_0, (uint32_t)CBIndex::c_1, (uint32_t)CBIndex::c_2, (uint32_t)CBIndex::c_3};
 
-  const uint32_t n_tiles = (a.numel() + ::tt::constants::TILE_HW - 1) / ::tt::constants::TILE_HW;
+  const uint32_t n_tiles = (iter.input(0).numel() + ::tt::constants::TILE_HW - 1) / ::tt::constants::TILE_HW;
 
   builder.CreateKernels(
     n_tiles,
