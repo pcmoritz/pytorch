@@ -822,6 +822,45 @@ at::Tensor & tril_tt_out(const at::Tensor & self, int64_t diagonal, at::Tensor &
 }
 
 static void where_kernel_tt(TensorIterator& iter) {
+  auto* allocator = at::tt::GetTTAllocator();
+  auto* device = allocator->device();
+  ProgramBuilder builder(device);
+
+  auto a_buf = allocator->get_buffer(iter.input(0));
+  auto b_buf = allocator->get_buffer(iter.input(1));
+  auto c_buf = allocator->get_buffer(iter.input(2));
+  auto d_buf = allocator->get_buffer(iter.output(0));
+
+  const uint32_t cb_num_tiles = 2;
+  builder.AddCircularBuffer(CBIndex::c_0, DataFormat::UInt8, cb_num_tiles);
+  builder.AddCircularBuffer(CBIndex::c_1, DataFormat::Float16_b, cb_num_tiles);
+  builder.AddCircularBuffer(CBIndex::c_2, DataFormat::Float16_b, cb_num_tiles);
+  builder.AddCircularBuffer(CBIndex::c_3, DataFormat::Float16_b, cb_num_tiles);
+
+  std::vector<uint32_t> reader_compile_time_args = {(uint32_t)CBIndex::c_0, (uint32_t)CBIndex::c_1, (uint32_t)CBIndex::c_2};
+  std::vector<uint32_t> writer_compile_time_args = {(uint32_t)CBIndex::c_3};
+  std::vector<uint32_t> compute_compile_time_args = {(uint32_t)CBIndex::c_0, (uint32_t)CBIndex::c_1, (uint32_t)CBIndex::c_2, (uint32_t)CBIndex::c_3};
+
+  const uint32_t n_tiles = (a.numel() + ::tt::constants::TILE_HW - 1) / ::tt::constants::TILE_HW;
+
+  builder.CreateKernels(
+    n_tiles,
+    // TODO: The paths are currently hard-coded, figure out how to fix it
+    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/ternary_eltwise_reader_row_major_to_tiles.cpp",
+    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/eltwise_writer_row_major_to_tiles.cpp",
+    "/root/pytorch/aten/src/ATen/native/tt/kernels/compute/eltwise_where_kernel.cpp",
+    reader_compile_time_args,
+    writer_compile_time_args,
+    compute_compile_time_args,
+    {},
+    [a_buf, b_buf, c_buf, d_buf](const Program& program, const CoreCoord& core, KernelHandle reader, KernelHandle writer, KernelHandle compute, uint32_t num_tiles, uint32_t start_tile_id) {
+      SetRuntimeArgs(program, reader, core, {a_buf->address(), b_buf->address(), c_buf->address(), num_tiles, start_tile_id});
+      SetRuntimeArgs(program, writer, core, {d_buf->address(), num_tiles, start_tile_id});
+      SetRuntimeArgs(program, compute, core, {num_tiles, start_tile_id});
+    }
+  );
+
+  builder.Execute();
 }
 
 REGISTER_TT_DISPATCH(where_kernel, &where_kernel_tt)
