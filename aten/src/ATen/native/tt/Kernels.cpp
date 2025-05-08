@@ -5,6 +5,7 @@
 #include <ATen/ops/mul_native.h>
 #include <ATen/ops/pow_native.h>
 #include <ATen/ops/relu_native.h>
+#include <ATen/ops/where_native.h>
 #include <ATen/ops/mm_native.h>
 #include <ATen/ops/addmm_native.h>
 #include <ATen/tt/TTDevice.h>
@@ -13,6 +14,7 @@
 #include <tt-metalium/work_split.hpp>
 
 #include <ATen/native/tt/Kernels.h>
+#include <ATen/native/TensorCompare.h>
 
 #include <ATen/ATen.h>
 #include <ATen/native/Resize.h>
@@ -818,6 +820,11 @@ at::Tensor & tril_tt_out(const at::Tensor & self, int64_t diagonal, at::Tensor &
   AT_ASSERT(false); // TODO: Implement this
   return out;
 }
+
+static void where_kernel_tt(TensorIterator& iter) {
+}
+
+REGISTER_TT_DISPATCH(where_kernel, &where_kernel_tt)
 
 void MemcpyWithOffsets(uint32_t dst_addr, uint32_t dst_offset, uint32_t src_addr, uint32_t src_offset, uint32_t num_tiles) {
   auto* allocator = at::tt::GetTTAllocator();
