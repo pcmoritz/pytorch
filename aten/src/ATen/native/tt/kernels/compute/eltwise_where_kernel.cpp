@@ -8,44 +8,29 @@
 #include "compute_kernel_api/tile_move_copy.h"
 #include "compute_kernel_api/eltwise_binary.h"
 
-void gtz_block(uint32_t in_cb, uint32_t out_cb, uint32_t num_tiles) {
+void gtz_lez_block(uint32_t in_cb, uint32_t out0_cb, uint32_t out1_cb, uint32_t num_tiles) {
     // Precondition: in_cb has num_tiles produced
     // Postcondition: out_cb has num_tiles produced
     // Postcondition: in_cb has num_tiles consumed
     copy_tile_to_dst_init_short(in_cb);
     gtz_tile_init();
+    lez_tile_init();
 
     cb_wait_front(in_cb, num_tiles);
-    cb_reserve_back(out_cb, num_tiles);
+    cb_reserve_back(out0_cb, num_tiles);
+    cb_reserve_back(out1_cb, num_tiles);
     for (uint32_t i = 0; i < num_tiles; ++i) {
         acquire_dst();
         copy_tile(in_cb, 0, 0);
         cb_pop_front(in_cb, 1);
         gtz_tile(0);
-        pack_tile(0, out_cb, i);
-        release_dst();
-    }
-    cb_push_back(out_cb, num_tiles);
-}
-
-void lez_block(uint32_t in_cb, uint32_t out_cb, uint32_t num_tiles) {
-    // Precondition: in_cb has num_tiles produced
-    // Postcondition: out_cb has num_tiles produced
-    // Postcondition: in_cb has num_tiles consumed
-    copy_tile_to_dst_init_short(in_cb);
-    lez_tile_init();
-
-    cb_wait_front(in_cb, num_tiles);
-    cb_reserve_back(out_cb, num_tiles);
-    for (uint32_t i = 0; i < num_tiles; ++i) {
-        acquire_dst();
-        copy_tile(in_cb, 0, 0);
-        cb_pop_front(in_cb, 1);
+        pack_tile(0, out0_cb, i);
         lez_tile(0);
-        pack_tile(0, out_cb, i);
+        pack_tile(0, out1_cb, i);
         release_dst();
     }
-    cb_push_back(out_cb, num_tiles);
+    cb_push_back(out0_cb, num_tiles);
+    cb_push_back(out1_cb, num_tiles);
 }
 
 void add_block(uint32_t in0_cb, uint32_t in1_cb, uint32_t out_cb, uint32_t num_tiles) {
@@ -107,8 +92,7 @@ void MAIN {
 
     // Loop over the assigned tiles and perform the computation
     for (uint32_t i = start_tile_id; i < end_tile_id; i++) {
-        gtz_block(cb_in0, cb_tmp1, 1);
-        lez_block(cb_in0, cb_tmp2, 1);
+        gtz_lez_block(cb_in0, cb_tmp1, cb_tmp2, 1);
         mul_block_inplace(cb_tmp1, cb_in1, 1);
         mul_block_inplace(cb_tmp2, cb_in2, 1);
         add_block(cb_tmp1, cb_tmp2, cb_out0, 1);

@@ -26,7 +26,7 @@ void kernel_main() {
     // The circular buffers to read the tiles into
     constexpr uint32_t cb_in0 = get_compile_time_arg_val(0);
     constexpr uint32_t cb_in1 = get_compile_time_arg_val(1);
-    constexpr uint32_t cb_in2 = get_compile_time_arg_val(1);
+    constexpr uint32_t cb_in2 = get_compile_time_arg_val(2);
 
     const InterleavedAddrGen<true> a = {
         .bank_base_address = a_addr, .page_size = 1 * FACE_WIDTH};
