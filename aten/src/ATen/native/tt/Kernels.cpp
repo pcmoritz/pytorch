@@ -222,13 +222,13 @@ static std::map<std::string, std::string> get_unary_op_defines(UnaryOpType op, c
   case UnaryOpType::RELU:
     return {{"SFPU_OP_RELU_FAMILY_INCLUDE", "1"}, {"SFPU_OP_CHAIN_0", "relu_tile_init(); relu_tile(0);"}};
   case UnaryOpType::POW:
-    return {{"SFPU_OP_COMPUTE_KERNEL_API_INCLUDE", "1"}, {"SFPU_OP_CHAIN_0", std::format("power_tile_init(); power_tile(0, {}u);", (uint32_t)params[0])}};
+    return {{"SFPU_OP_COMPUTE_KERNEL_API_INCLUDE", "1"}, {"SFPU_OP_CHAIN_0", fmt::format("power_tile_init(); power_tile(0, {}u);", (uint32_t)params[0])}};
   case UnaryOpType::RSQRT:
     return {{"SFPU_OP_COMPUTE_KERNEL_API_INCLUDE", "1"}, {"SFPU_OP_CHAIN_0", "rsqrt_tile_init(); rsqrt_tile(0);"}};
   case UnaryOpType::NEG:
     return {{"SFPU_OP_NEG_INCLUDE", "1"}, {"SFPU_OP_CHAIN_0", "negative_tile_init(); negative_tile(0);"}};
   case UnaryOpType::FILL:
-    return {{"SFPU_OP_FILL_INCLUDE", "1"}, {"SFPU_OP_CHAIN_0", std::format("fill_tile_init(); fill_tile_bitcast(0, {}u);", std::bit_cast<uint32_t>(params[0]))}};
+    return {{"SFPU_OP_FILL_INCLUDE", "1"}, {"SFPU_OP_CHAIN_0", fmt::format("fill_tile_init(); fill_tile_bitcast(0, {}u);", std::bit_cast<uint32_t>(params[0]))}};
   default:
     TORCH_INTERNAL_ASSERT(false, "Unrecognized UnaryOpType: ", static_cast<int64_t>(op));
   }

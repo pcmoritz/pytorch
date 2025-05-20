@@ -51,7 +51,7 @@ export TT_METAL_HOME=/root/tt-metal
 ./build/programming_examples/eltwise_binary
 ```
 
-In addition you currently need to clone https://github.com/qlibs/reflect into `/root/reflect`.
+In addition you currently need to clone https://github.com/qlibs/reflect into `/root/reflect` and https://github.com/Neargye/magic_enum into `/root/magic_enum`.
 
 ### 2. Miniforge Installation
 ```bash
@@ -76,7 +76,6 @@ pip install -r requirements.txt
 export USE_MKLDNN=OFF
 export CC=/usr/bin/clang-17
 export CXX=/usr/bin/clang++-17
-export CXXFLAGS=-stdlib=libc++
 
 # Build PyTorch
 python setup.py develop

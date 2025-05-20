@@ -124,7 +124,14 @@ file(GLOB_RECURSE native_tt_srcs "native/tt/*.cpp")
 file(GLOB_RECURSE native_tt_kernels "native/tt/kernels/*.cpp")
 EXCLUDE(native_tt_srcs "${native_tt_srcs}" ${native_tt_kernels})
 
-list(APPEND ATen_CPU_INCLUDE "$ENV{TT_METAL_HOME}/tt_stl/" "$ENV{TT_METAL_HOME}/tt_metal/api/" "$ENV{TT_METAL_HOME}/tt_metal/third_party/umd/device/api/" "$ENV{TT_METAL_HOME}/tt_metal/hostdevcommon/api/" "/root/reflect" "$ENV{TT_METAL_HOME}/tt_metal/third_party/tracy/public/")
+list(APPEND ATen_CPU_INCLUDE "$ENV{TT_METAL_HOME}/tt_stl/" "$ENV{TT_METAL_HOME}/tt_metal/api/" "$ENV{TT_METAL_HOME}/tt_metal/third_party/umd/device/api/" "$ENV{TT_METAL_HOME}/tt_metal/hostdevcommon/api/" "/root/reflect" "/root/magic_enum/include" "$ENV{TT_METAL_HOME}/tt_metal/third_party/tracy/public/"
+  "$ENV{TT_METAL_HOME}/.cpmcache/boost/1359e136761ab2d10afa1c4e21086c8d824735cd/libs/core/include/"
+  "$ENV{TT_METAL_HOME}/.cpmcache/boost/1359e136761ab2d10afa1c4e21086c8d824735cd/libs/container/include/"
+  "$ENV{TT_METAL_HOME}/.cpmcache/boost/1359e136761ab2d10afa1c4e21086c8d824735cd/libs/config/include/"
+  "$ENV{TT_METAL_HOME}/.cpmcache/boost/1359e136761ab2d10afa1c4e21086c8d824735cd/libs/move/include/"
+  "$ENV{TT_METAL_HOME}/.cpmcache/boost/1359e136761ab2d10afa1c4e21086c8d824735cd/libs/intrusive/include/"
+  "$ENV{TT_METAL_HOME}/.cpmcache/boost/1359e136761ab2d10afa1c4e21086c8d824735cd/libs/assert/include/"
+)
 
 file(GLOB native_sparse_cpp "native/sparse/*.cpp")
 file(GLOB native_quantized_cpp
