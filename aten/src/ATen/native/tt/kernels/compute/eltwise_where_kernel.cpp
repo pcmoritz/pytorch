@@ -7,71 +7,40 @@
 #include "compute_kernel_api/common.h"
 #include "compute_kernel_api/tile_move_copy.h"
 #include "compute_kernel_api/eltwise_binary.h"
+#include "compute_kernel_api/eltwise_binary_sfpu.h"
 
-void gtz_lez_block(uint32_t in_cb, uint32_t out0_cb, uint32_t out1_cb, uint32_t num_tiles) {
-    // Precondition: in_cb has num_tiles produced
-    // Postcondition: out_cb has num_tiles produced
-    // Postcondition: in_cb has num_tiles consumed
-    copy_tile_to_dst_init_short(in_cb);
-    gtz_tile_init();
-    lez_tile_init();
 
-    cb_wait_front(in_cb, num_tiles);
-    cb_reserve_back(out0_cb, num_tiles);
-    cb_reserve_back(out1_cb, num_tiles);
-    for (uint32_t i = 0; i < num_tiles; ++i) {
-        acquire_dst();
-        copy_tile(in_cb, 0, 0);
-        cb_pop_front(in_cb, 1);
-        gtz_tile(0);
-        pack_tile(0, out0_cb, i);
-        lez_tile(0);
-        pack_tile(0, out1_cb, i);
-        release_dst();
-    }
-    cb_push_back(out0_cb, num_tiles);
-    cb_push_back(out1_cb, num_tiles);
+#ifdef TRISC_MATH
+#define ITERATIONS (8)
+inline void gate1(const uint dst_offset) {
+  constexpr uint dst_tile_size = 32;
+  for(int _ = 0; _ < ITERATIONS; _++) {
+    vFloat values = dst_reg[0];
+    vFloat pred = dst_reg[dst_offset * dst_tile_size];
+    v_if (pred > 0.0) {
+      dst_reg[0] = values;
+    } v_else {
+      dst_reg[0] = 0.0;
+    } v_endif;
+    dst_reg++;
+  }
 }
 
-void add_block(uint32_t in0_cb, uint32_t in1_cb, uint32_t out_cb, uint32_t num_tiles) {
-    // Precondition: in0_cb and in1_cb have num_tiles produced
-    // Postcondition: in0_cb has num_tiles produced
-    // Postcondition: in1_cb has num_tiles consumed
-
-    add_tiles_init(in0_cb, in1_cb);
-    cb_wait_front(in0_cb, num_tiles);
-    cb_wait_front(in1_cb, num_tiles);
-    cb_reserve_back(out_cb, num_tiles);
-    for (uint32_t i = 0; i < num_tiles; i++) {
-        acquire_dst();
-        add_tiles(in0_cb, in1_cb, i, i, 0);
-        pack_tile(0, out_cb, i);
-        release_dst();
+inline void gate2(const uint dst_offset) {
+    constexpr uint dst_tile_size = 32;
+    for(int _ = 0; _ < ITERATIONS; _++) {
+      vFloat values = dst_reg[0];
+      vFloat pred = dst_reg[dst_offset * dst_tile_size];
+      v_if (pred > 0.0) {
+        dst_reg[0] = 0.0;
+      } v_else {
+        dst_reg[0] = values;
+      } v_endif;
+      dst_reg++;
     }
-    cb_push_back(out_cb, num_tiles);
+  }
+#endif
 
-    cb_pop_front(in0_cb, num_tiles);
-    cb_pop_front(in1_cb, num_tiles);
-}
-
-void mul_block_inplace(uint32_t in0_cb, uint32_t in1_cb, uint32_t num_tiles) {
-    // Precondition: in0_cb and in1_cb have num_tiles produced
-    // Postcondition: in0_cb has num_tiles produced
-    // Postcondition: in1_cb has num_tiles produced
-
-    mul_tiles_init(in0_cb, in1_cb);
-    cb_wait_front(in0_cb, num_tiles);
-    cb_wait_front(in1_cb, num_tiles);
-    for (uint32_t i = 0; i < num_tiles; i++) {
-        acquire_dst();
-        mul_tiles(in0_cb, in1_cb, 0, i, 0);
-        cb_pop_front(in0_cb, 1);
-        cb_reserve_back(in0_cb, 1);
-        pack_tile(0, in0_cb);
-        cb_push_back(in0_cb, 1);
-        release_dst();
-    }
-}
 
 namespace NAMESPACE {
 void MAIN {
@@ -82,20 +51,46 @@ void MAIN {
     constexpr auto cb_in1 = get_compile_time_arg_val(1);
     constexpr auto cb_in2 = get_compile_time_arg_val(2);
 
-    constexpr auto cb_tmp1 = tt::CBIndex::c_16;
-    constexpr auto cb_tmp2 = tt::CBIndex::c_17;
-
     constexpr auto cb_out0 = get_compile_time_arg_val(3);
 
     // Calculate the range of tiles this core should process
     const uint32_t end_tile_id = start_tile_id + n_tiles;
 
+    init_sfpu(cb_in1, cb_out0);
+
     // Loop over the assigned tiles and perform the computation
     for (uint32_t i = start_tile_id; i < end_tile_id; i++) {
-        gtz_lez_block(cb_in0, cb_tmp1, cb_tmp2, 1);
-        mul_block_inplace(cb_tmp1, cb_in1, 1);
-        mul_block_inplace(cb_tmp2, cb_in2, 1);
-        add_block(cb_tmp1, cb_tmp2, cb_out0, 1);
+        cb_wait_front(cb_in0, 1);
+        cb_wait_front(cb_in1, 1);
+        cb_wait_front(cb_in2, 1);
+
+        acquire_dst();
+
+        reconfig_data_format_srca<true>(cb_in0);
+        copy_tile_to_dst_init_short(cb_in0);
+        copy_tile(cb_in0, 0, 0);
+
+        copy_tile_init(cb_in1);
+        copy_tile(cb_in1, 0, 1);
+        MATH(llk_math_eltwise_binary_sfpu_params<false>(gate1, 1, 0, VectorMode::RC);)
+        pack_tile(1, cb_in1);
+
+        copy_tile_init(cb_in2);
+        copy_tile(cb_in2, 0, 2);
+        MATH(llk_math_eltwise_binary_sfpu_params<false>(gate2, 2, 0, VectorMode::RC);)
+        pack_tile(2, cb_in2);
+
+        add_tiles(cb_in1, cb_in2, 0, 0, 3);
+        cb_reserve_back(cb_out0, 1);
+        pack_tile(3, cb_out0);
+
+        release_dst();
+
+        cb_push_back(cb_out0, 1);
+
+        cb_pop_front(cb_in0, 1);
+        cb_pop_front(cb_in1, 1);
+        cb_pop_front(cb_in2, 1);
     }
 }
 }  // namespace NAMESPACE
