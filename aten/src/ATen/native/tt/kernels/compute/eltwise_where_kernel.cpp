@@ -53,7 +53,10 @@ void MAIN {
     constexpr auto cb_in1 = get_compile_time_arg_val(1);
     constexpr auto cb_in2 = get_compile_time_arg_val(2);
 
-    constexpr auto cb_out0 = get_compile_time_arg_val(3);
+    constexpr auto cb_tmp1 = get_compile_time_arg_val(3);
+    constexpr auto cb_tmp2 = get_compile_time_arg_val(4);
+
+    constexpr auto cb_out0 = get_compile_time_arg_val(5);
 
     // Calculate the range of tiles this core should process
     const uint32_t end_tile_id = start_tile_id + n_tiles;
@@ -66,7 +69,7 @@ void MAIN {
         cb_wait_front(cb_in1, 1);
         cb_wait_front(cb_in2, 1);
 
-        tile_regs_acquire();
+        acquire_dst();
 
         reconfig_data_format_srca<true>(cb_in0);
         copy_tile_to_dst_init_short(cb_in0);
@@ -75,26 +78,35 @@ void MAIN {
 
         copy_tile_init(cb_in1);
         copy_tile(cb_in1, 0, 1);
-        MATH(llk_math_eltwise_binary_sfpu_params<false>(gate1, 1, 0, VectorMode::RC);)
+        MATH(llk_math_eltwise_binary_sfpu_params<false>(gate1, 0, 1, VectorMode::RC);)
 
         copy_tile_init(cb_in2);
         copy_tile(cb_in2, 0, 2);
-        MATH(llk_math_eltwise_binary_sfpu_params<false>(gate1, 2, 0, VectorMode::RC);)
+        MATH(llk_math_eltwise_binary_sfpu_params<false>(gate2, 0, 2, VectorMode::RC);)
 
-        cb_reserve_back(cb_out0, 1);
+        cb_reserve_back(cb_tmp1, 1);
+	cb_reserve_back(cb_tmp2, 1);
+	pack_tile(1, cb_tmp1);
+	pack_tile(2, cb_tmp2);
+	cb_push_back(cb_tmp1, 1);
+	cb_push_back(cb_tmp2, 1);
+	release_dst();
+
+	cb_wait_front(cb_tmp1, 1);
+	cb_wait_front(cb_tmp2, 1);
+
+	tile_regs_acquire();
+	cb_reserve_back(cb_out0, 1);
+	add_tiles_init(cb_tmp1, cb_tmp2); add_tiles(cb_tmp1, cb_tmp2, 0, 0, 0);
 	tile_regs_commit();
 	tile_regs_wait();
-	pack_tile(1, cb_in1);
-	pack_tile(2, cb_in2);
+	pack_tile(0, cb_out0);
         tile_regs_release();
 
-	acquire_dst();
-	add_tiles(cb_in1, cb_in2, 0, 0, 0);
-	pack_tile(0, cb_out0);
-        release_dst();
+	cb_pop_front(cb_tmp1, 1);
+	cb_pop_front(cb_tmp2, 1);
 
-        cb_push_back(cb_out0, 1);
-
+	cb_push_back(cb_out0, 1);
         cb_pop_front(cb_in0, 1);
         cb_pop_front(cb_in1, 1);
         cb_pop_front(cb_in2, 1);
