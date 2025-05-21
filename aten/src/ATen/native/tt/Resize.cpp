@@ -81,7 +81,8 @@ inline TensorImpl* resize_impl_tt_(
   // Make sure the memory is padded to the tile size
   size_t tile_size_bytes = ::tt::constants::TILE_HW * itemsize;
   storage_size = ((storage_size + tile_size_bytes - 1) / tile_size_bytes) * tile_size_bytes;
-  size_t page_size = itemsize * ::tt::constants::FACE_WIDTH;
+  // TODO: Get rid of the code duplication
+  size_t page_size = itemsize == 1 ? ::tt::constants::TILE_WIDTH : itemsize * ::tt::constants::FACE_WIDTH;
   maybe_resize_storage_tt(self, storage_size, page_size);
 
   return self;
