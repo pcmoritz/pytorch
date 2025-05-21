@@ -25,7 +25,9 @@ TensorBase empty_tt(
   int64_t nelements_padded = ((nelements + ::tt::constants::TILE_HW - 1) / ::tt::constants::TILE_HW) * ::tt::constants::TILE_HW;
   auto dtype_meta = scalarTypeToTypeMeta(dtype);
   int64_t size_bytes = nelements_padded * dtype_meta.itemsize();
-  int64_t page_size_bytes = dtype_meta.itemsize() * ::tt::constants::FACE_WIDTH;
+  // The case of single byte itemsize needs to be handled differently and we need to
+  // use a page size of TILE_WIDTH in that case to satisfy NOC alignment requirements
+  int64_t page_size_bytes = dtype_meta.itemsize() == 1 ? ::tt::constants::TILE_WIDTH : dtype_meta.itemsize() * ::tt::constants::FACE_WIDTH;
   auto storage_impl = c10::make_intrusive<StorageImpl>(
         c10::StorageImpl::use_byte_size_t(),
         size_bytes,
