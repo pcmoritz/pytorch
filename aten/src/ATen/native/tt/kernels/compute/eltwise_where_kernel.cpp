@@ -17,30 +17,30 @@
 inline void gate1(const uint dst_offset) {
   constexpr uint dst_tile_size = 32;
   for(int _ = 0; _ < ITERATIONS; _++) {
-    vFloat values = dst_reg[0];
-    vFloat pred = dst_reg[dst_offset * dst_tile_size];
+    vFloat pred = dst_reg[0];
+    vFloat values = dst_reg[dst_offset * dst_tile_size];
     v_if (pred > 0.0) {
-      dst_reg[0] = values;
+      dst_reg[dst_offset * dst_tile_size] = values;
     } v_else {
-      dst_reg[0] = 0.0;
+      dst_reg[dst_offset * dst_tile_size] = 0.0;
     } v_endif;
     dst_reg++;
   }
 }
 
 inline void gate2(const uint dst_offset) {
-    constexpr uint dst_tile_size = 32;
-    for(int _ = 0; _ < ITERATIONS; _++) {
-      vFloat values = dst_reg[0];
-      vFloat pred = dst_reg[dst_offset * dst_tile_size];
-      v_if (pred > 0.0) {
-        dst_reg[0] = 0.0;
-      } v_else {
-        dst_reg[0] = values;
-      } v_endif;
-      dst_reg++;
-    }
+  constexpr uint dst_tile_size = 32;
+  for(int _ = 0; _ < ITERATIONS; _++) {
+    vFloat pred = dst_reg[0];
+    vFloat values = dst_reg[dst_offset * dst_tile_size];
+    v_if (pred > 0.0) {
+      dst_reg[dst_offset * dst_tile_size] = 0.0;
+    } v_else {
+      dst_reg[dst_offset * dst_tile_size] = values;
+    } v_endif;
+    dst_reg++;
   }
+}
 #endif
 
 
@@ -66,26 +66,31 @@ void MAIN {
         cb_wait_front(cb_in1, 1);
         cb_wait_front(cb_in2, 1);
 
-        acquire_dst();
+        tile_regs_acquire();
 
         reconfig_data_format_srca<true>(cb_in0);
         copy_tile_to_dst_init_short(cb_in0);
         copy_tile(cb_in0, 0, 0);
+	reconfig_data_format_srca<true>(cb_in1);
 
         copy_tile_init(cb_in1);
         copy_tile(cb_in1, 0, 1);
         MATH(llk_math_eltwise_binary_sfpu_params<false>(gate1, 1, 0, VectorMode::RC);)
-        pack_tile(1, cb_in1);
 
         copy_tile_init(cb_in2);
         copy_tile(cb_in2, 0, 2);
-        MATH(llk_math_eltwise_binary_sfpu_params<false>(gate2, 2, 0, VectorMode::RC);)
-        pack_tile(2, cb_in2);
+        MATH(llk_math_eltwise_binary_sfpu_params<false>(gate1, 2, 0, VectorMode::RC);)
 
-        add_tiles(cb_in1, cb_in2, 0, 0, 3);
         cb_reserve_back(cb_out0, 1);
-        pack_tile(3, cb_out0);
+	tile_regs_commit();
+	tile_regs_wait();
+	pack_tile(1, cb_in1);
+	pack_tile(2, cb_in2);
+        tile_regs_release();
 
+	acquire_dst();
+	add_tiles(cb_in1, cb_in2, 0, 0, 0);
+	pack_tile(0, cb_out0);
         release_dst();
 
         cb_push_back(cb_out0, 1);
