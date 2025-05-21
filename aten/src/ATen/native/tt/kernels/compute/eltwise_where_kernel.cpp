@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
+// SPDX-FileCopyrightText: (c) 2025 Philipp Moritz
 //
 // SPDX-License-Identifier: Apache-2.0
 
