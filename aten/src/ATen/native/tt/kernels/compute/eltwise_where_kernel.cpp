@@ -14,6 +14,10 @@
 
 #ifdef TRISC_MATH
 #define ITERATIONS (8)
+
+// Implement the operation T[1] <- T[0] > 0.0 ? T[1] : 0.0
+// This is used to implement the where(pred, val1, val2) kernel, this function
+// will set all the elements that should be taken from val1
 inline void gate1(const uint dst_offset) {
   constexpr uint dst_tile_size = 32;
   for(int _ = 0; _ < ITERATIONS; _++) {
@@ -28,6 +32,9 @@ inline void gate1(const uint dst_offset) {
   }
 }
 
+// Implement the operation T[1] <- T[0] > 0.0 ? 0.0 : T[1]
+// This is used to implement the where(pred, val1, val2) kernel, this function
+// will set all the elements that should be taken from val2
 inline void gate2(const uint dst_offset) {
   constexpr uint dst_tile_size = 32;
   for(int _ = 0; _ < ITERATIONS; _++) {
@@ -53,9 +60,13 @@ void MAIN {
     constexpr auto cb_in1 = get_compile_time_arg_val(1);
     constexpr auto cb_in2 = get_compile_time_arg_val(2);
 
+    // Temporary CB that will hold gate1(cb_in0, cb_in1)
     constexpr auto cb_tmp1 = get_compile_time_arg_val(3);
+    // Temporary CB that will hold gate2(cb_in0, cb_in2)
     constexpr auto cb_tmp2 = get_compile_time_arg_val(4);
 
+    // This is the output which will be calculated by
+    // adding cb_tmp1 and cb_tmp2
     constexpr auto cb_out0 = get_compile_time_arg_val(5);
 
     // Calculate the range of tiles this core should process
