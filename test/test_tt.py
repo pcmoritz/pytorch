@@ -156,6 +156,8 @@ class TestTT(unittest.TestCase):
         c = torch.rand(64, 64, dtype=torch.bfloat16)
         result = torch.where(a, b, c)
         result_tt = torch.where(a.to("tt"), b.to("tt"), c.to("tt")).to("cpu")
+        print("result", result)
+        print("result_tt", result_tt)
         self.assertTrue(torch.allclose(result, result_tt))
 
     def test_tt_resize(self):

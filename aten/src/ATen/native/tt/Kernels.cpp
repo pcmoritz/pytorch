@@ -94,6 +94,7 @@ public:
         all_device_cores_,
         ComputeConfig{
           .math_fidelity = math_fidelity,
+	  .fp32_dest_acc_en = true,
           .math_approx_mode = false,
           .compile_args = compute_compile_time_args,
           .defines = defines});
@@ -833,11 +834,9 @@ static void where_kernel_tt(TensorIterator& iter) {
 
   const uint32_t cb_num_tiles = 2;
   builder.AddCircularBuffer(CBIndex::c_0, DataFormat::UInt8, cb_num_tiles);
-  builder.AddCircularBuffer(CBIndex::c_1, DataFormat::Float16_b, cb_num_tiles);
-  builder.AddCircularBuffer(CBIndex::c_2, DataFormat::Float16_b, cb_num_tiles);
-  builder.AddCircularBuffer(CBIndex::c_3, DataFormat::Float16_b, cb_num_tiles);
-  builder.AddCircularBuffer(CBIndex::c_16, DataFormat::Float16_b, cb_num_tiles);
-  builder.AddCircularBuffer(CBIndex::c_17, DataFormat::Float16_b, cb_num_tiles);
+  builder.AddCircularBuffer(CBIndex::c_1, DataFormat::Float32, cb_num_tiles);
+  builder.AddCircularBuffer(CBIndex::c_2, DataFormat::Float32, cb_num_tiles);
+  builder.AddCircularBuffer(CBIndex::c_3, DataFormat::Float32, cb_num_tiles);
 
   std::vector<uint32_t> reader_compile_time_args = {(uint32_t)CBIndex::c_0, (uint32_t)CBIndex::c_1, (uint32_t)CBIndex::c_2};
   std::vector<uint32_t> writer_compile_time_args = {(uint32_t)CBIndex::c_3};
