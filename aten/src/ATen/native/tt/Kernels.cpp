@@ -60,15 +60,18 @@ public:
     const std::map<std::string, std::string>& defines,
     SetRuntimeArgsFn set_runtime_args
   ) {
-    auto reader = CreateKernel(
-      program_,
-      reader_kernel_path,
-      all_device_cores_,
-      DataMovementConfig{
+    KernelHandle reader;
+    if (!reader_kernel_path.empty()) {
+      reader = CreateKernel(
+        program_,
+        reader_kernel_path,
+        all_device_cores_,
+        DataMovementConfig{
           .processor = DataMovementProcessor::RISCV_0,
           .noc = NOC::RISCV_0_default,
           .compile_args = reader_compile_time_args,
           .defines = defines});
+    }
 
     auto writer = CreateKernel(
       program_,
@@ -89,7 +92,7 @@ public:
         all_device_cores_,
         ComputeConfig{
           .math_fidelity = math_fidelity,
-	  .fp32_dest_acc_en = true,
+	        .fp32_dest_acc_en = true,
           .math_approx_mode = false,
           .compile_args = compute_compile_time_args,
           .defines = defines});
