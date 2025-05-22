@@ -473,9 +473,8 @@ Tensor& uniform_tt_(Tensor& self, double from, double to, std::optional<Generato
 
   auto a_buf = allocator->get_buffer(self);
 
-  const uint32_t cb_num_tiles = 2;
-  builder.AddCircularBuffer(CBIndex::c_0, DataFormat::Float16_b, cb_num_tiles);
-  builder.AddCircularBuffer(CBIndex::c_24, DataFormat::Float32, cb_num_tiles);
+  builder.AddCircularBuffer(CBIndex::c_0, DataFormat::Float16_b, 1);
+  builder.AddCircularBuffer(CBIndex::c_24, DataFormat::Float32, 2);
 
   const uint32_t output_is_dram = 1;
   const std::vector<uint32_t> writer_compile_time_args = {(uint32_t)CBIndex::c_24, (uint32_t)CBIndex::c_0, output_is_dram};
@@ -506,8 +505,8 @@ Tensor& uniform_tt_(Tensor& self, double from, double to, std::optional<Generato
       // Each core has its own seed to increase the number of generated random numbers
       uint32_t seed = 42 + start_tile_id;
 
-      SetRuntimeArgs(program, writer, core, {seed, f2u_from.u, f2u_to.u, start_tile_id, num_tiles});
-      SetRuntimeArgs(program, compute, core, {a_buf->address(), start_tile_id, num_tiles});
+      SetRuntimeArgs(program, writer, core, {a_buf->address(), start_tile_id, num_tiles});
+      SetRuntimeArgs(program, compute, core, {seed, f2u_from.u, f2u_to.u, start_tile_id, num_tiles});
     }
   );
 
