@@ -165,6 +165,11 @@ class TestTT(unittest.TestCase):
         self.assertTrue(b.shape == (64 * 32,))
         self.assertTrue(torch.allclose(a, b.to("cpu")[:32*32]))
 
+    def test_tt_scalar(self):
+        for dtype in [torch.float, torch.bfloat16, torch.long]:
+            a = 42 * torch.ones(1, dtype=dtype)
+            self.assertTrue(a.to("tt").item() == a.item())
+
 if __name__ == "__main__":
     unittest.main()
 

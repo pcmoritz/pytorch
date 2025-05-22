@@ -858,6 +858,18 @@ void MemcpyWithOffsets(uint32_t dst_addr, uint32_t dst_offset, uint32_t src_addr
   builder.Execute();
 }
 
+Scalar _local_scalar_dense_tt(const Tensor& self) {
+  Scalar r;
+  TORCH_CHECK(self.numel() > 0, "_local_scalar_dense: Empty tensor not supported");
+  // TODO: We should make this copy async so no sync between device and CPU is needed
+  auto cpu_self = self.cpu();
+  AT_DISPATCH_V2(
+    self.scalar_type(), "_local_scalar_dense_tt", AT_WRAP([&] {
+        r = Scalar(*cpu_self.const_data_ptr<scalar_t>());
+     }), AT_EXPAND(AT_ALL_TYPES_AND_COMPLEX), kComplexHalf, kHalf, kBool, kBFloat16, AT_EXPAND(AT_BAREBONES_UNSIGNED_TYPES));
+  return r;
+}
+
 // static void sum_kernel_tt(TensorIterator& iter) {
 // }
 
