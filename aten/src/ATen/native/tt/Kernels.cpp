@@ -501,7 +501,7 @@ Tensor& uniform_tt_(Tensor& self, double from, double to, std::optional<Generato
       f2u_to.f = static_cast<float>(to) - eps;  // -eps make sure that generated number is < operation_attributes.to
 
       // Each core has its own seed to increase the number of generated random numbers
-      uint32_t seed = 42 + i;
+      uint32_t seed = 42 + start_tile_id;
 
       SetRuntimeArgs(program, writer, core, {seed, f2u_from.u, f2u_to.u, start_tile_id, num_tiles});
       SetRuntimeArgs(program, compute, core, {a_buf->address(), start_tile_id, num_tiles});
