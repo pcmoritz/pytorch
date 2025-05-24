@@ -19,6 +19,8 @@
 #include <ATen/ATen.h>
 #include <ATen/native/Resize.h>
 
+#define TT_NOT_IMPLEMENTED() AT_ASSERT(false && "not implemented")
+
 using namespace tt;
 using namespace tt::tt_metal;
 
@@ -466,6 +468,11 @@ at::Tensor & addmm_out_tt(const at::Tensor & self, const at::Tensor & mat1, cons
   return out;
 }
 
+at::Tensor & bmm_out_tt(const at::Tensor & self, const at::Tensor & mat2, at::Tensor & out) {
+  TT_NOT_IMPLEMENTED();
+  return out;
+}
+
 Tensor& uniform_tt_(Tensor& self, double from, double to, std::optional<Generator> gen) {
   auto* allocator = at::tt::GetTTAllocator();
   auto* device = allocator->device();
@@ -778,7 +785,7 @@ at::Tensor & mean_out_tt(const at::Tensor & self, at::OptionalIntArrayRef dim, b
 }
 
 at::Tensor & tril_tt_out(const at::Tensor & self, int64_t diagonal, at::Tensor & out) {
-  AT_ASSERT(false); // TODO: Implement this
+  TT_NOT_IMPLEMENTED();
   return out;
 }
 
@@ -868,6 +875,21 @@ Scalar _local_scalar_dense_tt(const Tensor& self) {
         r = Scalar(*cpu_self.const_data_ptr<scalar_t>());
      }), AT_EXPAND(AT_ALL_TYPES_AND_COMPLEX), kComplexHalf, kHalf, kBool, kBFloat16, AT_EXPAND(AT_BAREBONES_UNSIGNED_TYPES));
   return r;
+}
+
+at::Tensor & softmax_tt_out(const at::Tensor & self, int64_t dim, bool half_to_float, at::Tensor & out) {
+  TT_NOT_IMPLEMENTED();
+  return out;
+}
+
+at::Tensor & isneginf_out_tt(const at::Tensor & self, at::Tensor & out) {
+  TT_NOT_IMPLEMENTED();
+  return out;
+}
+
+at::Tensor & all_out_tt(const at::Tensor & self, int64_t dim, bool keepdim, at::Tensor & out) {
+  TT_NOT_IMPLEMENTED();
+  return out;
 }
 
 // static void sum_kernel_tt(TensorIterator& iter) {

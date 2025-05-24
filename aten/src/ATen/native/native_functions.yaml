@@ -721,6 +721,7 @@
   dispatch:
     CPU, CUDA: all_out
     MPS: all_out_mps
+    TT: all_out_tt
 
 - func: all.dims_out(Tensor self, int[]? dim=None, bool keepdim=False, *, Tensor(a!) out) -> Tensor(a!)
   device_check: NoCheck   # TensorIterator
@@ -1371,6 +1372,7 @@
     CPU: bmm_out_cpu
     CUDA: bmm_out_cuda
     MPS: bmm_out_mps
+    TT: bmm_out_tt
     XPU: bmm_out_xpu
     SparseCPU: bmm_out_sparse_cpu
     SparseCUDA: bmm_out_sparse_cuda
@@ -5579,6 +5581,7 @@
     CPU: softmax_cpu_out
     CUDA: softmax_cuda_out
     MPS: softmax_mps_out
+    TT: softmax_tt_out
 
 - func: _softmax_backward_data(Tensor grad_output, Tensor output, int dim, ScalarType input_dtype) -> Tensor
   structured_delegate: _softmax_backward_data.out
@@ -13219,6 +13222,7 @@
   structured_inherits: TensorIteratorBase
   dispatch:
     CPU, CUDA, MPS: isneginf_out
+    TT: isneginf_out_tt
     SparseCPU, SparseCUDA: isneginf_sparse_out
     SparseCsrCPU, SparseCsrCUDA, SparseCsrMeta: isneginf_sparse_csr_out
   tags: pointwise
