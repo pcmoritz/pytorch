@@ -444,6 +444,7 @@ at::Tensor& mm_out_tt(const at::Tensor & self, const at::Tensor & mat2, at::Tens
          Kt,
          N,
          num_tiles_written,
+	 num_output_tiles_per_core,
         });
     tt_metal::SetRuntimeArgs(program, writer_id, core, {c->address(), num_output_tiles_per_core, num_tiles_written, (uint32_t)M, (uint32_t)N});
     num_tiles_written += num_output_tiles_per_core;

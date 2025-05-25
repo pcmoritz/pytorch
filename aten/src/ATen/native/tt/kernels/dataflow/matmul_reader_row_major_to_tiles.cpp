@@ -17,6 +17,7 @@ void kernel_main() {
     uint32_t K = Kt * TILE_WIDTH;
     uint32_t N = get_arg_val<uint32_t>(4);
     uint32_t start_id = get_arg_val<uint32_t>(5);
+    uint32_t num_tiles = get_arg_val<uint32_t>(6);
 
     uint32_t Nt = N / TILE_WIDTH;
     uint32_t start_id_h = start_id / Nt;
@@ -25,9 +26,6 @@ void kernel_main() {
     constexpr uint32_t datum_size_bytes = get_compile_time_arg_val(0);
     constexpr uint32_t is_b_transposed = get_compile_time_arg_val(1);
 
-    // For now, we only write the code to work for a single tile, will adapt it later
-    constexpr uint32_t num_output_tiles = 1;
-    
     constexpr uint32_t cb_id_in0 = 0;
     constexpr uint32_t cb_id_in1 = 1;
 
@@ -48,7 +46,7 @@ void kernel_main() {
     const uint32_t a_face_offset[4] = {0, FACE_WIDTH, K * FACE_HEIGHT, K * FACE_HEIGHT + FACE_WIDTH};
     const uint32_t b_face_offset[4] = {0, FACE_WIDTH, N * FACE_HEIGHT, N * FACE_HEIGHT + FACE_WIDTH};
 
-    for (uint32_t n = 0; n < num_output_tiles; ++n) {
+    for (uint32_t n = 0; n < num_tiles; ++n) {
       for (uint32_t kt = 0; kt < Kt; ++kt) {
 	// Read A tile
 	cb_reserve_back(cb_id_in0, onetile);
