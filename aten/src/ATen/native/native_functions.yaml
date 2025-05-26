@@ -5262,6 +5262,7 @@
   dispatch:
     CPU, CUDA: silu_out
     MPS: silu_out_mps
+    TT: silu_out_tt
   tags: pointwise
 
 - func: silu_backward.grad_input(Tensor grad_output, Tensor self, *, Tensor(a!) grad_input) -> Tensor(a!)

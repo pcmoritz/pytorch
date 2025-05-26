@@ -893,6 +893,11 @@ at::Tensor & all_out_tt(const at::Tensor & self, int64_t dim, bool keepdim, at::
   return out;
 }
 
+at::Tensor & silu_out_tt(const at::Tensor & self, at::Tensor & out) {
+  TT_NOT_IMPLEMENTED();
+  return out;
+}
+
 // static void sum_kernel_tt(TensorIterator& iter) {
 // }
 
