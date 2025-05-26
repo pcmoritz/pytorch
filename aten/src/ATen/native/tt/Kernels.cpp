@@ -343,115 +343,41 @@ at::Tensor& mm_out_tt(const at::Tensor & self, const at::Tensor & mat2, at::Tens
 
   auto* allocator = at::tt::GetTTAllocator();
   auto* device = allocator->device();
-  CommandQueue& cq = device->command_queue();
-  Program program = CreateProgram();
+  ProgramBuilder builder(device);
 
-  auto grid_size = device->compute_with_storage_grid_size();
-  uint32_t num_cores_x = grid_size.x;
-  uint32_t num_cores_y = grid_size.y;
+  auto a_buf = allocator->get_buffer(self);
+  auto b_buf = allocator->get_buffer(mat2);
+  auto c_buf = allocator->get_buffer(result);
 
-  auto num_output_tiles_total = (M * N) / constants::TILE_HW;
-  auto [num_cores, all_cores, core_group_1, core_group_2,
-        num_output_tiles_per_core_group_1, num_output_tiles_per_core_group_2] =
-            split_work_to_cores(grid_size, num_output_tiles_total);
-
-  auto a = allocator->get_buffer(self);
-  auto b = allocator->get_buffer(mat2);
-  auto c = allocator->get_buffer(result);
-
-  const uint32_t num_input_tiles = 2;
-  CBHandle cb_a = MakeCircularBufferBF16(program, all_cores, CBIndex::c_0, num_input_tiles);
-  CBHandle cb_b = MakeCircularBufferBF16(program, all_cores, CBIndex::c_1, num_input_tiles);
-  const uint32_t num_output_tiles = 2;
-  CBHandle cb_c = MakeCircularBufferBF16(program, all_cores, CBIndex::c_16, num_output_tiles);
+  const uint32_t cb_num_tiles = 2;
+  builder.AddCircularBuffer(CBIndex::c_0, DataFormat::Float16_b, cb_num_tiles);
+  builder.AddCircularBuffer(CBIndex::c_1, DataFormat::Float16_b, cb_num_tiles);
+  builder.AddCircularBuffer(CBIndex::c_16, DataFormat::Float16_b, cb_num_tiles);
 
   std::vector<uint32_t> reader_compile_time_args = {(uint32_t)2 /* bytes in bfloat16 */, (uint32_t) !mat2.is_contiguous() /* whether b is transposed */};
   std::vector<uint32_t> writer_compile_time_args = {(uint32_t)CBIndex::c_16, (uint32_t)1};
+  std::vector<uint32_t> compute_compile_time_args = {(uint32_t) !mat2.is_contiguous() /* whether b is transposed */};
 
-  auto reader_id = tt_metal::CreateKernel(
-    program,
-    // TODO: The path is currently hard-coded, figure out how to fix it
+  const uint32_t n_tiles = (M * N) / constants::TILE_HW;
+
+  builder.CreateKernels(
+    n_tiles,
+    // TODO: The paths are currently hard-coded, figure out how to fix it
     "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/matmul_reader_row_major_to_tiles.cpp",
-    all_cores,
-    tt_metal::DataMovementConfig{
-        .processor = DataMovementProcessor::RISCV_1,
-        .noc = NOC::RISCV_1_default,
-        .compile_args = reader_compile_time_args});
-
-  auto writer_id = tt_metal::CreateKernel(
-    program,
-    // TODO: The path is currently hard-coded, figure out how to fix it
     "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/matmul_writer_row_major_to_tiles.cpp",
-    all_cores,
-    tt_metal::DataMovementConfig{
-        .processor = DataMovementProcessor::RISCV_0,
-        .noc = NOC::RISCV_0_default,
-        .compile_args = writer_compile_time_args});
-
-  MathFidelity math_fidelity = MathFidelity::HiFi4;
-
-  std::vector<uint32_t> compute_args_group_1 = {
-    1,                                 // B
-    1,                                 // Mt
-    Kt,                                // Kt
-    num_output_tiles_per_core_group_1, // Nt
-    (uint32_t) !mat2.is_contiguous() // whether b is transposed
-  };  // bmm compute kernel the B, Mt, Nt are just 3 for loops that technically act as 1 large loop, so only set Nt
-      // for simplicity
-
-  auto matmul_multi_core_kernel_group_1_id = tt_metal::CreateKernel(
-    program,
-    // TODO: The path is currently hard-coded, figure out how to fix it
     "/root/pytorch/aten/src/ATen/native/tt/kernels/compute/bmm.cpp",
-    core_group_1,
-    tt_metal::ComputeConfig{.math_fidelity = math_fidelity, .fp32_dest_acc_en = true, .compile_args = compute_args_group_1});
-
-  if (!core_group_2.ranges().empty()) {
-     std::vector<uint32_t> compute_args_group_2 = {
-        1,                                 // B
-        1,                                 // Mt
-        Kt,                                // Kt
-        num_output_tiles_per_core_group_2  // Nt
-     };  // bmm compute kernel the B, Mt, Nt are just 3 for loops that technically act as 1 large loop, so only set
-         // Nt for simplicity
-
-     auto matmul_multi_core_kernel_group_2_id = tt_metal::CreateKernel(
-         program,
-         "tt_metal/programming_examples/matmul_common/kernels/compute/bmm.cpp",
-         core_group_2,
-         tt_metal::ComputeConfig{.math_fidelity = math_fidelity, .compile_args = compute_args_group_2});
-  }
-
-  for (uint32_t i = 0, num_tiles_written = 0; i < num_cores; i++) {
-    CoreCoord core = {i / num_cores_y, i % num_cores_y};
-
-    uint32_t num_output_tiles_per_core = 0;
-    if (core_group_1.contains(core)) {
-        num_output_tiles_per_core = num_output_tiles_per_core_group_1;
-    } else if (core_group_2.contains(core)) {
-        num_output_tiles_per_core = num_output_tiles_per_core_group_2;
-    } else {
-        TT_ASSERT(false, "Core not in specified core ranges");
+    reader_compile_time_args,
+    writer_compile_time_args,
+    compute_compile_time_args,
+    {},
+    [a_buf, b_buf, c_buf, M, N, Kt](const Program& program, const CoreCoord& core, KernelHandle reader, KernelHandle writer, KernelHandle compute, uint32_t num_tiles, uint32_t start_tile_id) {
+      SetRuntimeArgs(program, reader, core, {a_buf->address(), b_buf->address(), M, Kt, N, start_tile_id, num_tiles});
+      SetRuntimeArgs(program, writer, core, {c_buf->address(), num_tiles, start_tile_id, M, N});
+      SetRuntimeArgs(program, compute, core, {num_tiles, Kt});
     }
+  );
 
-    tt_metal::SetRuntimeArgs(
-        program,
-        reader_id,
-        core,
-        {a->address(),
-         b->address(),
-         M,
-         Kt,
-         N,
-         num_tiles_written,
-	 num_output_tiles_per_core,
-        });
-    tt_metal::SetRuntimeArgs(program, writer_id, core, {c->address(), num_output_tiles_per_core, num_tiles_written, (uint32_t)M, (uint32_t)N});
-    num_tiles_written += num_output_tiles_per_core;
-  }
-
-  EnqueueProgram(cq, program, false);
-  Finish(cq);
+  builder.Execute();
 
   return result;
 }
