@@ -815,7 +815,49 @@ at::Tensor & isneginf_out_tt(const at::Tensor & self, at::Tensor & out) {
 }
 
 at::Tensor & all_out_tt(const at::Tensor & self, int64_t dim, bool keepdim, at::Tensor & out) {
-  TT_NOT_IMPLEMENTED();
+  TORCH_CHECK(dim == -1, "dim currently must be -1, got ", dim);
+
+  // K is the inner dimension of the reduction
+  uint32_t K = self.size(dim);
+  // num_tiles is the number of output tiles that need to be computed
+  // TODO: This is most likely not correct yet
+  uint32_t num_tiles = self.numel() / (K * constants::TILE_HW);
+
+  auto* allocator = at::tt::GetTTAllocator();
+  auto* device = allocator->device();
+
+  auto a = allocator->get_buffer(self);
+  auto b = allocator->get_buffer(out);
+
+  ProgramBuilder builder(device);
+
+  const uint32_t cb_num_tiles = 2;
+  builder.AddCircularBuffer(CBIndex::c_0, DataFormat::UInt8, cb_num_tiles);
+  builder.AddCircularBuffer(CBIndex::c_1, DataFormat::UInt8, cb_num_tiles);
+  builder.AddCircularBuffer(CBIndex::c_2, DataFormat::UInt8, cb_num_tiles);
+
+  std::vector<uint32_t> reader_compile_time_args = {(uint32_t)CBIndex::c_0, (uint32_t)CBIndex::c_1};
+  std::vector<uint32_t> writer_compile_time_args = {(uint32_t)CBIndex::c_2};
+  std::vector<uint32_t> compute_compile_time_args = {(uint32_t)CBIndex::c_0, (uint32_t)CBIndex::c_1, (uint32_t)CBIndex::c_2};
+
+  builder.CreateKernels(
+    num_tiles,
+    // TODO: The paths are currently hard-coded, figure out how to fix it
+    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/logical_reduce_reader_row_major_to_tiles.cpp",
+    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/logical_reduce_writer_row_major.cpp",
+    "/root/pytorch/aten/src/ATen/native/tt/kernels/compute/logical_reduce.cpp",
+    reader_compile_time_args,
+    writer_compile_time_args,
+    compute_compile_time_args,
+    {},
+    [a, b, K](const Program& program, const CoreCoord& core, KernelHandle reader, KernelHandle writer, KernelHandle compute, uint32_t num_tiles_per_core, uint32_t start_tile_id) {
+      SetRuntimeArgs(program, reader, core, {a->address(), K, num_tiles_per_core, start_tile_id});
+      SetRuntimeArgs(program, writer, core, {b->address(), num_tiles_per_core, start_tile_id});
+      SetRuntimeArgs(program, compute, core, {K / constants::TILE_WIDTH, num_tiles_per_core});
+    });
+
+  builder.Execute();
+
   return out;
 }
 
