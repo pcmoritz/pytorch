@@ -849,7 +849,7 @@ at::Tensor & all_out_tt(const at::Tensor & self, int64_t dim, bool keepdim, at::
     reader_compile_time_args,
     writer_compile_time_args,
     compute_compile_time_args,
-    {},
+    {{"REDUCE_OP", "PoolType::MAX"}, {"REDUCE_DIM", "ReduceDim::REDUCE_ROW"}},
     [a, b, K](const Program& program, const CoreCoord& core, KernelHandle reader, KernelHandle writer, KernelHandle compute, uint32_t num_tiles_per_core, uint32_t start_tile_id) {
       SetRuntimeArgs(program, reader, core, {a->address(), K, num_tiles_per_core, start_tile_id});
       SetRuntimeArgs(program, writer, core, {b->address(), num_tiles_per_core, start_tile_id});

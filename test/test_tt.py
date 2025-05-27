@@ -128,6 +128,12 @@ class TestTT(unittest.TestCase):
         c_tt = torch.cat([a.to("tt"), b.to("tt")], dim=1).to("cpu")
         self.assertTrue(torch.allclose(c, c_tt))
 
+    def test_tt_all(self):
+        a = torch.rand(1, 128, 64) > 0.5
+        b = a.all(dim=-1)
+        b_tt = a.to("tt").all(dim=-1).to("cpu")
+        self.assertTrue(torch.allclose(b, b_tt))
+
     def test_tt_mean(self):
         a = torch.rand(1, 128, 64, dtype=torch.bfloat16)
         for keepdim in [True, False]:
