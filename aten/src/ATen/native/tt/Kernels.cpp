@@ -821,7 +821,7 @@ at::Tensor & all_out_tt(const at::Tensor & self, int64_t dim, bool keepdim, at::
   uint32_t K = self.size(dim);
   // num_tiles is the number of output tiles that need to be computed
   // TODO: This is most likely not correct yet
-  uint32_t num_tiles = self.numel() / (K * constants::TILE_HW);
+  uint32_t num_tiles = self.numel() / (K * ::tt::constants::TILE_HEIGHT);
 
   auto* allocator = at::tt::GetTTAllocator();
   auto* device = allocator->device();

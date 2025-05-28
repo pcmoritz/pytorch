@@ -25,7 +25,7 @@ void MAIN {
     reconfig_data_format_srcb<true>(cb_in1);
     for (uint32_t kt = 0; kt < Kt; ++kt) {
       cb_wait_front(cb_in0, onetile);
-      reduce_tile(cb_in0, cb_in1, 0, 0);
+      reduce_tile(cb_in0, cb_in1, 0, 0, 0);
       cb_pop_front(cb_in0, onetile);
     }
     cb_reserve_back(cb_out0, onetile);
