@@ -30,7 +30,6 @@ void MAIN {
             acquire_dst();
             for (uint32_t wt = 0; wt < Wt; ++wt) {
                 cb_wait_front(tt::CBIndex::c_0, onetile);
-                // REDUCE_OP is expected to come from add_define
                 matmul_tiles(tt::CBIndex::c_2, tt::CBIndex::c_0, 0, 0, 0, false);
                 cb_pop_front(tt::CBIndex::c_0, onetile);
             }

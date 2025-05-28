@@ -823,6 +823,9 @@ at::Tensor & all_out_tt(const at::Tensor & self, int64_t dim, bool keepdim, at::
   // TODO: This is most likely not correct yet
   uint32_t num_tiles = self.numel() / (K * ::tt::constants::TILE_HEIGHT);
 
+  bfloat16 bfloat_scale_value = bfloat16(1.0f);
+  uint32_t packed_scale_value = pack_two_bfloat16_into_uint32({bfloat_scale_value, bfloat_scale_value});
+
   auto* allocator = at::tt::GetTTAllocator();
   auto* device = allocator->device();
 
@@ -833,12 +836,13 @@ at::Tensor & all_out_tt(const at::Tensor & self, int64_t dim, bool keepdim, at::
 
   const uint32_t cb_num_tiles = 2;
   builder.AddCircularBuffer(CBIndex::c_0, DataFormat::UInt8, cb_num_tiles);
-  builder.AddCircularBuffer(CBIndex::c_1, DataFormat::UInt8, cb_num_tiles);
-  builder.AddCircularBuffer(CBIndex::c_2, DataFormat::UInt8, cb_num_tiles);
+  builder.AddCircularBuffer(CBIndex::c_1, DataFormat::Float16_b, cb_num_tiles);
+  builder.AddCircularBuffer(CBIndex::c_2, DataFormat::Float16_b, cb_num_tiles);
+  builder.AddCircularBuffer(CBIndex::c_3, DataFormat::UInt8, cb_num_tiles);
 
-  std::vector<uint32_t> reader_compile_time_args = {(uint32_t)CBIndex::c_0, (uint32_t)CBIndex::c_1};
-  std::vector<uint32_t> writer_compile_time_args = {(uint32_t)CBIndex::c_2};
-  std::vector<uint32_t> compute_compile_time_args = {(uint32_t)CBIndex::c_0, (uint32_t)CBIndex::c_1, (uint32_t)CBIndex::c_2};
+  std::vector<uint32_t> reader_compile_time_args = {packed_scale_value, (uint32_t)CBIndex::c_0, (uint32_t)CBIndex::c_1};
+  std::vector<uint32_t> writer_compile_time_args = {(uint32_t)CBIndex::c_3};
+  std::vector<uint32_t> compute_compile_time_args = {(uint32_t)CBIndex::c_0, (uint32_t)CBIndex::c_1, (uint32_t)CBIndex::c_2, (uint32_t)CBIndex::c_3};
 
   builder.CreateKernels(
     num_tiles,
@@ -849,7 +853,7 @@ at::Tensor & all_out_tt(const at::Tensor & self, int64_t dim, bool keepdim, at::
     reader_compile_time_args,
     writer_compile_time_args,
     compute_compile_time_args,
-    {{"REDUCE_OP", "PoolType::MAX"}, {"REDUCE_DIM", "ReduceDim::REDUCE_ROW"}},
+    {},
     [a, b, K](const Program& program, const CoreCoord& core, KernelHandle reader, KernelHandle writer, KernelHandle compute, uint32_t num_tiles_per_core, uint32_t start_tile_id) {
       SetRuntimeArgs(program, reader, core, {a->address(), K, num_tiles_per_core, start_tile_id});
       SetRuntimeArgs(program, writer, core, {b->address(), num_tiles_per_core, start_tile_id});

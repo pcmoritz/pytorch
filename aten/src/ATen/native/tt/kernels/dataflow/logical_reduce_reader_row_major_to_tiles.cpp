@@ -1,26 +1,16 @@
 // SPDX-FileCopyrightText: (c) 2025 Philipp Moritz
 //
 // SPDX-License-Identifier: Apache-2.0
+
+#include <stdint.h>
+
 #include "dataflow_api.h"
 #include "debug/dprint.h"
-#include <cstdint>
+
+#include "util.h"
 
 constexpr uint32_t TILE_HEIGHT = 32;
 constexpr uint32_t TILE_WIDTH = 32;
-
-// Tile is asumed  to have 8-bit elements
-FORCE_INLINE void generate_reduce_scaler(const uint32_t cb_id) {
-  // Four uint8_t 1s packed into a uint32_t
-  uint32_t packed_ones = 0x01010101;
-  cb_reserve_back(cb_id, 1);
-  uint32_t write_addr = get_write_ptr(cb_id);
-  volatile tt_l1_ptr uint32_t* ptr = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(write_addr);
-  // Fill the tile with ones
-  for (int i = 0; i < 256; ++i) {
-    ptr[i] = packed_ones;
-  }
-  cb_push_back(cb_id, 1);
-}
 
 void kernel_main() {
   // Read parameters from the kernel arguments
@@ -31,12 +21,14 @@ void kernel_main() {
   uint32_t start_tile_id = get_arg_val<uint32_t>(3);
   uint32_t Kt = K / TILE_WIDTH;
 
-  // The circular buffer to read the tiles nto
-  constexpr uint32_t cb_in0 = get_compile_time_arg_val(0);
-  // The cirecular buffer for the scale
-  constexpr uint32_t cb_in1 = get_compile_time_arg_val(1);
+  constexpr uint32_t scaler = get_compile_time_arg_val(0);
 
-  generate_reduce_scaler(cb_in1);
+  // The circular buffer to read the tiles nto
+  constexpr uint32_t cb_in0 = get_compile_time_arg_val(1);
+  // The cirecular buffer for the scale
+  constexpr uint32_t cb_in1 = get_compile_time_arg_val(2);
+
+  generate_mm_scaler(cb_in1, scaler);
 
   const InterleavedAddrGen<true> a = {
     .bank_base_address = a_addr, .page_size = TILE_WIDTH};

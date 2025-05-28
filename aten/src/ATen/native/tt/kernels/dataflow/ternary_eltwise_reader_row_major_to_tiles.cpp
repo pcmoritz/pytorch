@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 //
 // SPDX-License-Identifier: Apache-2.0
-
 #include "dataflow_api.h"
 #include "debug/dprint.h"
 #include <cstdint>
@@ -40,8 +39,7 @@ void kernel_main() {
     // Calculate the range of tiles this core should process
     const uint32_t end_tile_id = start_tile_id + n_tiles;
 
-    // Now we loop over the assigned tiles and read them into the circular
-    // buffers
+    // Now we loop over the assigned tiles and read them into the circular buffers
     for (uint32_t i = start_tile_id; i < end_tile_id; i++) {
         cb_reserve_back(cb_in0, 1);
         uint32_t cb_in0_addr = get_write_ptr(cb_in0);
