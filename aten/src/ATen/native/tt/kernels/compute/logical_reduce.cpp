@@ -2,31 +2,44 @@
 
 #include "compute_kernel_api/matmul.h"
 
+#include "compute_kernel_api.h"
+#include "compute_kernel_api/common.h"
 #include "compute_kernel_api/tile_move_copy.h"
+#include "compute_kernel_api/eltwise_binary.h"
+#include "compute_kernel_api/eltwise_binary_sfpu.h"
+#include "compute_kernel_api/eltwise_unary/eltwise_unary.h"
 #include "compute_kernel_api/eltwise_unary/sfpu_split_includes.h"
+#include "compute_kernel_api/eltwise_unary/sfpu_int_sum.h"
 
 #include "debug/dprint_pages.h"
 #include "debug/dprint_tensix.h"
-
 
 #ifdef TRISC_MATH
 #define ITERATIONS (8)
 
 // Implement the operation T[0] <- T[0] > 0.0 ? 1.0 : 0.0
-inline void convert() {
+void convert(const uint dst_offset) {
+  constexpr uint dst_tile_size = 32;
   for(int _ = 0; _ < ITERATIONS; _++) {
     vFloat values = dst_reg[0];
     v_if (values > 0.0) {
-      dst_reg[0] = 1.0;
+      dst_reg[dst_offset * dst_tile_size] = 1.0;
     } v_else {
-      dst_reg[0] = 0.0;
+      dst_reg[dst_offset * dst_tile_size] = 0.0;
     } v_endif;
     dst_reg++;
   }
 }
 
-#endif
+inline void calculate_sum_float_row() {
+  vFloat a = dst_reg[0];
+  for (unsigned i = 1; i < 32; ++i) {
+    a += dst_reg[i];
+  }
+  dst_reg[0] = a;
+}
 
+#endif
 
 namespace NAMESPACE {
 
@@ -42,43 +55,44 @@ void MAIN {
   constexpr uint32_t cb_tmp0 = get_compile_time_arg_val(2);
   constexpr uint32_t cb_out0 = get_compile_time_arg_val(3);
 
-  // If we use the matrix we are reducing as the second operand of the MM
-  // and transpose it, the sums in the result matrix will be in the rows
-  // (i.e. consecutive) so they can be read with a single read instruction.
-  constexpr uint32_t is_b_transposed = 1;
-  mm_init(cb_in1, cb_in0, cb_out0, is_b_transposed);
+  init_sfpu(cb_in0, cb_tmp0);
 
   cb_wait_front(cb_in1, onetile); // scaler tile from the reader
   for (uint32_t i = 0; i < n_tiles; ++i) {
-    acquire_dst();
-
     for (uint32_t kt = 0; kt < Kt; ++kt) {
       cb_wait_front(cb_in0, onetile);
 
+      acquire_dst();
+
       reconfig_data_format_srca<true>(cb_in0);
       copy_tile_to_dst_init_short(cb_in0);
-      copy_tile(cb_in0, 0, 1);
-      cb_pop_front(cb_in0, onetile);
+      copy_tile(cb_in0, 0, 0);
       reconfig_data_format_srca<true>(cb_in1);
 
-      MATH(llk_math_eltwise_unary_sfpu_params<false>(convert, 1, VectorMode::RC);)
-
-      cb_reserve_back(cb_tmp0, onetile);
+      MATH(llk_math_eltwise_binary_sfpu_params<false>(convert, 0, 1, VectorMode::RC);)
+      MATH(llk_math_eltwise_unary_sfpu_params<false>(calculate_sum_float_row, 1, VectorMode::C);)
+      cb_reserve_back(cb_tmp0, 1);
       pack_tile(1, cb_tmp0);
-      cb_push_back(cb_tmp0, onetile);
+      cb_push_back(cb_tmp0, 1);
 
-      cb_wait_front(cb_tmp0, onetile);
-      
-      matmul_tiles(cb_in1, cb_tmp0, 0, 0, 0, false);
-      cb_pop_front(cb_tmp0, onetile);
+      release_dst();
+
+      cb_wait_front(cb_tmp0, 1);
+      // tt::compute::common::print_full_tile(cb_tmp0);
+	
+      // dprint_tensix_dest_reg(1);
+      cb_pop_front(cb_in0, onetile);
     }
     cb_reserve_back(cb_out0, onetile);
-    pack_reconfig_data_format(cb_out0);
+    
+    acquire_dst();
+    copy_tile(cb_tmp0, 0, 0);
+    unary_gt_tile(0, 1107034112); // 31.5f
     dprint_tensix_dest_reg(0);
+    pack_reconfig_data_format(cb_out0);
     pack_tile(0, cb_out0);
-    // PACK(tt::compute::common::print_full_tile(cb_out0);)
-    cb_push_back(cb_out0, onetile);
     release_dst();
+    cb_push_back(cb_out0, onetile);
   }
 }
   
