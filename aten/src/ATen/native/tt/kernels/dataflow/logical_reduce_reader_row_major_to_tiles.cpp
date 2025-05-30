@@ -21,14 +21,8 @@ void kernel_main() {
   uint32_t start_tile_id = get_arg_val<uint32_t>(3);
   uint32_t Kt = K / TILE_WIDTH;
 
-  constexpr uint32_t scaler = get_compile_time_arg_val(0);
-
-  // The circular buffer to read the tiles nto
-  constexpr uint32_t cb_in0 = get_compile_time_arg_val(1);
-  // The cirecular buffer for the scale
-  constexpr uint32_t cb_in1 = get_compile_time_arg_val(2);
-
-  generate_mm_scaler(cb_in1, scaler);
+  // The circular buffer to read the tiles into
+  constexpr uint32_t cb_in0 = get_compile_time_arg_val(0);
 
   const InterleavedAddrGen<true> a = {
     .bank_base_address = a_addr, .page_size = TILE_WIDTH};
