@@ -94,7 +94,7 @@ public:
         all_device_cores_,
         ComputeConfig{
           .math_fidelity = math_fidelity,
-	        .fp32_dest_acc_en = true,
+          .fp32_dest_acc_en = true,
           .math_approx_mode = false,
           .compile_args = compute_compile_time_args,
           .defines = defines});
