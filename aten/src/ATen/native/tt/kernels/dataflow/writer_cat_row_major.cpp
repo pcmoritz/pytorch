@@ -4,7 +4,7 @@
 
 #include "dataflow_api.h"
 
-constexpr uint32_t FACE_WIDTH = 16;
+constexpr uint32_t TILE_WIDTH = 32;
 
 void kernel_main() {
     constexpr uint32_t num_tensors = get_compile_time_arg_val(0);
@@ -30,7 +30,7 @@ void kernel_main() {
     uint8_t src_addr_gens_memblk[sizeof(InterleavedAddrGen<true>) * num_tensors];
     InterleavedAddrGen<true>* src_addr_gens = reinterpret_cast<InterleavedAddrGen<true>*>(src_addr_gens_memblk);
     const InterleavedAddrGen<true> dst_addr_gen = {
-      .bank_base_address = dst_addr, .page_size = datum_size_bytes * FACE_WIDTH
+      .bank_base_address = dst_addr, .page_size = datum_size_bytes * TILE_WIDTH
     };
     
     uint32_t num_pages_per_block[num_tensors];
@@ -38,7 +38,7 @@ void kernel_main() {
     for (uint32_t i = 0; i < num_tensors; ++i) {
         uint32_t src_addr = arg_ptr[i];
         new (&src_addr_gens[i]) InterleavedAddrGen<true>{
-            .bank_base_address = src_addr, .page_size = FACE_WIDTH};
+            .bank_base_address = src_addr, .page_size = TILE_WIDTH};
         num_pages_per_block[i] = arg_ptr[num_tensors + i];
         src_page_id[i] = arg_ptr[2 * num_tensors + i];
     }
@@ -48,9 +48,9 @@ void kernel_main() {
     for (uint32_t dst_page_id = start_page_id; dst_page_id < end_page_id; ++dst_page_id) {
         uint64_t src_noc_addr = get_noc_addr(src_page_id[curr_tensor], src_addr_gens[curr_tensor]);
         uint64_t dst_noc_addr = get_noc_addr(dst_page_id, dst_addr_gen);
-        noc_async_read(src_noc_addr, buffer_addr, FACE_WIDTH * datum_size_bytes);
+        noc_async_read(src_noc_addr, buffer_addr, TILE_WIDTH * datum_size_bytes);
 	    noc_async_read_barrier();
-	    noc_async_write(buffer_addr, dst_noc_addr, FACE_WIDTH * datum_size_bytes);
+	    noc_async_write(buffer_addr, dst_noc_addr, TILE_WIDTH * datum_size_bytes);
 	    noc_async_write_barrier();
         src_page_id[curr_tensor] += 1;
         curr_tensor_page_id += 1;

@@ -22,7 +22,7 @@ void kernel_main() {
     const uint32_t tile_size_bytes = get_tile_size(cb_out0);
 
     const InterleavedAddrGen<true> c = {
-        .bank_base_address = c_addr, .page_size = datum_size_bytes * FACE_WIDTH
+        .bank_base_address = c_addr, .page_size = datum_size_bytes * TILE_WIDTH
     };
 
     // Calculate the range of tiles this core should process
@@ -34,10 +34,10 @@ void kernel_main() {
         cb_wait_front(cb_out0, 1);
         uint32_t cb_out0_addr = get_read_ptr(cb_out0);
 
-        for (uint32_t h = 0; h < TILE_HEIGHT * 2; ++h) {
-            uint64_t c_noc_addr = get_noc_addr(i * TILE_HEIGHT * 2 + h, c);
-            noc_async_write(cb_out0_addr, c_noc_addr, FACE_WIDTH * datum_size_bytes);
-            cb_out0_addr += FACE_WIDTH * datum_size_bytes;
+        for (uint32_t h = 0; h < TILE_HEIGHT; ++h) {
+            uint64_t c_noc_addr = get_noc_addr(i * TILE_HEIGHT + h, c);
+            noc_async_write(cb_out0_addr, c_noc_addr, TILE_WIDTH * datum_size_bytes);
+            cb_out0_addr += TILE_WIDTH * datum_size_bytes;
         }
 
         // This will wait until the write is done. As an alternative, noc_async_writes_flushed()

@@ -34,11 +34,6 @@ static CBHandle MakeCircularBuffer(
     return CreateCircularBuffer(program, core, cb_config);
 }
 
-static CBHandle MakeCircularBufferBF16(Program& program, const CoreSpec& core, CBIndex cb, uint32_t n_tiles) {
-  constexpr uint32_t tile_size = sizeof(bfloat16) * constants::TILE_HW;
-  return MakeCircularBuffer(program, core, cb, n_tiles * tile_size, tile_size, DataFormat::Float16_b);
-}
-
 static CoreRange AllDeviceCores(IDevice* device) {
   auto grid_size = device->compute_with_storage_grid_size();
   return CoreRange({0, 0}, {grid_size.x - 1, grid_size.y - 1});
@@ -187,9 +182,9 @@ static void EltwiseBinaryOp(BinaryOpType op, const at::Tensor& a, const at::Tens
   builder.CreateKernels(
     n_tiles,
     // TODO: The paths are currently hard-coded, figure out how to fix it
-    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/binary_eltwise_reader_row_major_to_tiles.cpp",
-    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/eltwise_writer_row_major_to_tiles.cpp",
-    "/root/pytorch/aten/src/ATen/native/tt/kernels/compute/eltwise_binary_kernel.cpp",
+    "/home/pcmoritz/pytorch/aten/src/ATen/native/tt/kernels/dataflow/binary_eltwise_reader_row_major_to_tiles.cpp",
+    "/home/pcmoritz/pytorch/aten/src/ATen/native/tt/kernels/dataflow/eltwise_writer_row_major_to_tiles.cpp",
+    "/home/pcmoritz/pytorch/aten/src/ATen/native/tt/kernels/compute/eltwise_binary_kernel.cpp",
     reader_compile_time_args,
     writer_compile_time_args,
     compute_compile_time_args,
@@ -257,9 +252,9 @@ static void EltwiseUnaryOp(UnaryOpType op, const at::Tensor& a, const at::Tensor
   builder.CreateKernels(
     n_tiles,
     // TODO: The paths are currently hard-coded, figure out how to fix it
-    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/unary_eltwise_reader_row_major_to_tiles.cpp",
-    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/eltwise_writer_row_major_to_tiles.cpp",
-    "/root/pytorch/aten/src/ATen/native/tt/kernels/compute/eltwise_sfpu_multi_core.cpp",
+    "/home/pcmoritz/pytorch/aten/src/ATen/native/tt/kernels/dataflow/unary_eltwise_reader_row_major_to_tiles.cpp",
+    "/home/pcmoritz/pytorch/aten/src/ATen/native/tt/kernels/dataflow/eltwise_writer_row_major_to_tiles.cpp",
+    "/home/pcmoritz/pytorch/aten/src/ATen/native/tt/kernels/compute/eltwise_sfpu_multi_core.cpp",
     reader_compile_time_args,
     writer_compile_time_args,
     compute_compile_time_args,
@@ -363,9 +358,9 @@ at::Tensor& mm_out_tt(const at::Tensor & self, const at::Tensor & mat2, at::Tens
   builder.CreateKernels(
     n_tiles,
     // TODO: The paths are currently hard-coded, figure out how to fix it
-    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/matmul_reader_row_major_to_tiles.cpp",
-    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/matmul_writer_row_major_to_tiles.cpp",
-    "/root/pytorch/aten/src/ATen/native/tt/kernels/compute/bmm.cpp",
+    "/home/pcmoritz/pytorch/aten/src/ATen/native/tt/kernels/dataflow/matmul_reader_row_major_to_tiles.cpp",
+    "/home/pcmoritz/pytorch/aten/src/ATen/native/tt/kernels/dataflow/matmul_writer_row_major_to_tiles.cpp",
+    "/home/pcmoritz/pytorch/aten/src/ATen/native/tt/kernels/compute/bmm.cpp",
     reader_compile_time_args,
     writer_compile_time_args,
     compute_compile_time_args,
@@ -421,7 +416,7 @@ Tensor& uniform_tt_(Tensor& self, double from, double to, std::optional<Generato
     n_tiles,
     // TODO: The paths are currently hard-coded, figure out how to fix it
     "",
-    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/writer_uniform_row_major.cpp",
+    "/home/pcmoritz/pytorch/aten/src/ATen/native/tt/kernels/dataflow/writer_uniform_row_major.cpp",
     "ttnn/cpp/ttnn/operations/uniform/device/kernels/compute_uniform.cpp",
     {},
     writer_compile_time_args,
@@ -451,7 +446,7 @@ Tensor& uniform_tt_(Tensor& self, double from, double to, std::optional<Generato
 
 Tensor index_select_tt(const Tensor& self, int64_t dim, const Tensor& index) {
   TORCH_CHECK(index.dim() == 1, "Index is supposed to be a vector");
-  TORCH_CHECK(self.stride(dim) % constants::FACE_WIDTH == 0, "Size of vectors to be selected currently needs to be divisible by FACE_WIDTH");
+  TORCH_CHECK(self.stride(dim) % constants::TILE_WIDTH == 0, "Size of vectors to be selected currently needs to be divisible by TILE_WIDTH");
 
   auto contiguous_index = index.contiguous();
   uint64_t num_indices = index.numel();
@@ -474,10 +469,10 @@ Tensor index_select_tt(const Tensor& self, int64_t dim, const Tensor& index) {
   uint32_t num_cores_total = num_cores_x * num_cores_y;
   auto all_device_cores = CoreRange({0, 0}, {num_cores_x - 1, num_cores_y - 1});
 
-  CBHandle cb_indices = MakeCircularBuffer(program, all_device_cores, CBIndex::c_0, 2 * constants::FACE_WIDTH, 2 * constants::FACE_WIDTH, DataFormat::UInt32);
+  CBHandle cb_indices = MakeCircularBuffer(program, all_device_cores, CBIndex::c_0, constants::TILE_WIDTH, constants::TILE_WIDTH, DataFormat::UInt32);
 
   // Distribute the indices onto the cores
-  uint64_t num_pages = num_indices / constants::FACE_WIDTH; // TODO: Use ceil here and adapt boundary
+  uint64_t num_pages = num_indices / constants::TILE_WIDTH; // TODO: Use ceil here and adapt boundary
   auto [num_cores, all_cores, core_group_1, core_group_2, num_pages_per_core_group_1, num_pages_per_core_group_2] =
     split_work_to_cores(grid_size, num_pages);
 
@@ -487,8 +482,8 @@ Tensor index_select_tt(const Tensor& self, int64_t dim, const Tensor& index) {
   // For now we will just make it size FACE_WIDTH for simplicity but we might need to optimize that later
   tt_metal::InterleavedBufferConfig l1_config{
     .device = device,
-    .size = datum_size_bytes * constants::FACE_WIDTH,
-    .page_size = datum_size_bytes * constants::FACE_WIDTH,
+    .size = datum_size_bytes * constants::TILE_WIDTH,
+    .page_size = datum_size_bytes * constants::TILE_WIDTH,
     .buffer_type = tt_metal::BufferType::L1};
   auto l1_buffer = CreateBuffer(l1_config);
 
@@ -498,7 +493,7 @@ Tensor index_select_tt(const Tensor& self, int64_t dim, const Tensor& index) {
   auto reader_id = tt_metal::CreateKernel(
     program,
     // TODO: The path is currently hard-coded, figure out how to fix it
-    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/index_select_reader_row_major.cpp",
+    "/home/pcmoritz/pytorch/aten/src/ATen/native/tt/kernels/dataflow/index_select_reader_row_major.cpp",
     all_device_cores,
     tt_metal::DataMovementConfig{
         .processor = DataMovementProcessor::RISCV_1,
@@ -508,7 +503,7 @@ Tensor index_select_tt(const Tensor& self, int64_t dim, const Tensor& index) {
   auto writer_id = tt_metal::CreateKernel(
     program,
     // TODO: The path is currently hard-coded, figure out how to fix it
-    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/index_select_writer_row_major.cpp",
+    "/home/pcmoritz/pytorch/aten/src/ATen/native/tt/kernels/dataflow/index_select_writer_row_major.cpp",
     all_device_cores,
     tt_metal::DataMovementConfig{
         .processor = DataMovementProcessor::RISCV_0,
@@ -547,13 +542,13 @@ at::Tensor & cat_out_tt(const at::ITensorListRef & tensors, int64_t dim, at::Ten
   auto inputs = tensors.materialize();
 
   int64_t num_tensors = inputs.size();
-  uint32_t num_pages = out.numel() / constants::FACE_WIDTH;
-  uint32_t num_output_pages_per_block = out.size(dim) * out.stride(dim) / constants::FACE_WIDTH;
+  uint32_t num_pages = out.numel() / constants::TILE_WIDTH;
+  uint32_t num_output_pages_per_block = out.size(dim) * out.stride(dim) / constants::TILE_WIDTH;
   std::vector<uint32_t> num_pages_per_block(num_tensors);
 
   for (int i = 0; i < num_tensors; ++i) {
     auto& tensor = inputs[i].get();
-    num_pages_per_block[i] = tensor.size(dim) * tensor.stride(dim) / constants::FACE_WIDTH;
+    num_pages_per_block[i] = tensor.size(dim) * tensor.stride(dim) / constants::TILE_WIDTH;
   }
 
   auto* allocator = at::tt::GetTTAllocator();
@@ -578,8 +573,8 @@ at::Tensor & cat_out_tt(const at::ITensorListRef & tensors, int64_t dim, at::Ten
   // For now we will just make it size FACE_WIDTH for simplicity but we might need to optimize that later
   tt_metal::InterleavedBufferConfig l1_config{
     .device = device,
-    .size = datum_size_bytes * constants::FACE_WIDTH,
-    .page_size = datum_size_bytes * constants::FACE_WIDTH,
+    .size = datum_size_bytes * constants::TILE_WIDTH,
+    .page_size = datum_size_bytes * constants::TILE_WIDTH,
     .buffer_type = tt_metal::BufferType::L1};
   auto l1_buffer = CreateBuffer(l1_config);
 
@@ -588,7 +583,7 @@ at::Tensor & cat_out_tt(const at::ITensorListRef & tensors, int64_t dim, at::Ten
   auto writer_id = tt_metal::CreateKernel(
     program,
     // TODO: The path is currently hard-coded, figure out how to fix it
-    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/writer_cat_row_major.cpp",
+    "/home/pcmoritz/pytorch/aten/src/ATen/native/tt/kernels/dataflow/writer_cat_row_major.cpp",
     all_device_cores,
     tt_metal::DataMovementConfig{
         .processor = DataMovementProcessor::RISCV_0,
@@ -692,9 +687,9 @@ at::Tensor & mean_out_tt(const at::Tensor & self, at::OptionalIntArrayRef dim, b
   builder.CreateKernels(
     num_blocks,
     // TODO: The paths are currently hard-coded, figure out how to fix it
-    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/reduce_reader_row_major_to_tiles.cpp",
-    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/reduce_writer_row_major.cpp",
-    "/root/pytorch/aten/src/ATen/native/tt/kernels/compute/reduce.cpp",
+    "/home/pcmoritz/pytorch/aten/src/ATen/native/tt/kernels/dataflow/reduce_reader_row_major_to_tiles.cpp",
+    "/home/pcmoritz/pytorch/aten/src/ATen/native/tt/kernels/dataflow/reduce_writer_row_major.cpp",
+    "/home/pcmoritz/pytorch/aten/src/ATen/native/tt/kernels/compute/reduce.cpp",
     reader_compile_time_args,
     writer_compile_time_args,
     compute_compile_time_args,
@@ -743,9 +738,9 @@ static void where_kernel_tt(TensorIterator& iter) {
   builder.CreateKernels(
     n_tiles,
     // TODO: The paths are currently hard-coded, figure out how to fix it
-    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/ternary_eltwise_reader_row_major_to_tiles.cpp",
-    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/eltwise_writer_row_major_to_tiles.cpp",
-    "/root/pytorch/aten/src/ATen/native/tt/kernels/compute/eltwise_where_kernel.cpp",
+    "/home/pcmoritz/pytorch/aten/src/ATen/native/tt/kernels/dataflow/ternary_eltwise_reader_row_major_to_tiles.cpp",
+    "/home/pcmoritz/pytorch/aten/src/ATen/native/tt/kernels/dataflow/eltwise_writer_row_major_to_tiles.cpp",
+    "/home/pcmoritz/pytorch/aten/src/ATen/native/tt/kernels/compute/eltwise_where_kernel.cpp",
     reader_compile_time_args,
     writer_compile_time_args,
     compute_compile_time_args,
@@ -776,8 +771,8 @@ void MemcpyWithOffsets(uint32_t dst_addr, uint32_t dst_offset, uint32_t src_addr
   builder.CreateKernels(
     num_tiles,
     // TODO: The paths are currently hard-coded, figure out how to fix it
-    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/memcpy_reader.cpp",
-    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/memcpy_writer.cpp",
+    "/home/pcmoritz/pytorch/aten/src/ATen/native/tt/kernels/dataflow/memcpy_reader.cpp",
+    "/home/pcmoritz/pytorch/aten/src/ATen/native/tt/kernels/dataflow/memcpy_writer.cpp",
     "",
     reader_compile_time_args,
     writer_compile_time_args,
@@ -842,9 +837,9 @@ at::Tensor & all_out_tt(const at::Tensor & self, int64_t dim, bool keepdim, at::
   builder.CreateKernels(
     num_tiles,
     // TODO: The paths are currently hard-coded, figure out how to fix it
-    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/logical_reduce_reader_row_major_to_tiles.cpp",
-    "/root/pytorch/aten/src/ATen/native/tt/kernels/dataflow/logical_reduce_writer_row_major.cpp",
-    "/root/pytorch/aten/src/ATen/native/tt/kernels/compute/logical_reduce.cpp",
+    "/home/pcmoritz/pytorch/aten/src/ATen/native/tt/kernels/dataflow/logical_reduce_reader_row_major_to_tiles.cpp",
+    "/home/pcmoritz/pytorch/aten/src/ATen/native/tt/kernels/dataflow/logical_reduce_writer_row_major.cpp",
+    "/home/pcmoritz/pytorch/aten/src/ATen/native/tt/kernels/compute/logical_reduce.cpp",
     reader_compile_time_args,
     writer_compile_time_args,
     compute_compile_time_args,

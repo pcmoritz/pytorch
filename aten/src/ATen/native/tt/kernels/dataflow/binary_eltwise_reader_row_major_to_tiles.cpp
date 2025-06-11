@@ -41,11 +41,11 @@ void kernel_main() {
     const uint32_t tile_size_bytes = get_tile_size(cb_in0);
 
     const InterleavedAddrGen<true> a = {
-        .bank_base_address = a_addr, .page_size = datum_size_bytes * FACE_WIDTH};
+        .bank_base_address = a_addr, .page_size = datum_size_bytes * TILE_WIDTH};
 
 #ifndef BINARY_ELTWISE_SCALAR_OP
     const InterleavedAddrGen<true> b = {
-        .bank_base_address = b_addr, .page_size = datum_size_bytes * FACE_WIDTH};
+        .bank_base_address = b_addr, .page_size = datum_size_bytes * TILE_WIDTH};
 #else
     // We only need to fill the tile with the scalar value once
     cb_reserve_back(cb_in1, 1);
@@ -66,14 +66,14 @@ void kernel_main() {
         uint32_t cb_in1_addr = get_write_ptr(cb_in1);
 #endif
 
-	    for (uint32_t h = 0; h < TILE_HEIGHT * 2; ++h) {
-	        uint64_t a_noc_addr = get_noc_addr(i * TILE_HEIGHT * 2 + h, a);
-	        noc_async_read(a_noc_addr, cb_in0_addr, FACE_WIDTH * datum_size_bytes);
-	        cb_in0_addr += FACE_WIDTH * datum_size_bytes;
+	    for (uint32_t h = 0; h < TILE_HEIGHT; ++h) {
+	        uint64_t a_noc_addr = get_noc_addr(i * TILE_HEIGHT + h, a);
+	        noc_async_read(a_noc_addr, cb_in0_addr, TILE_WIDTH * datum_size_bytes);
+	        cb_in0_addr += TILE_WIDTH * datum_size_bytes;
 #ifndef BINARY_ELTWISE_SCALAR_OP
-	        uint64_t b_noc_addr = get_noc_addr(i * TILE_HEIGHT * 2 + h, b);
-	        noc_async_read(b_noc_addr, cb_in1_addr, FACE_WIDTH * datum_size_bytes);
-	        cb_in1_addr += FACE_WIDTH * datum_size_bytes;
+	        uint64_t b_noc_addr = get_noc_addr(i * TILE_HEIGHT + h, b);
+	        noc_async_read(b_noc_addr, cb_in1_addr, TILE_WIDTH * datum_size_bytes);
+	        cb_in1_addr += TILE_WIDTH * datum_size_bytes;
 #endif
 	    }
 

@@ -1,6 +1,6 @@
 #include "dataflow_api.h"
 
-constexpr uint32_t FACE_WIDTH = 16;
+constexpr uint32_t TILE_WIDTH = 32;
 
 void kernel_main() {
     // Read parameters from the kernel arguments
@@ -14,7 +14,7 @@ void kernel_main() {
     constexpr uint32_t cb_in = get_compile_time_arg_val(0);
     const uint32_t tile_size_bytes = get_tile_size(cb_in);
 
-    constexpr uint32_t page_size_bytes = datum_size_bytes * FACE_WIDTH;
+    constexpr uint32_t page_size_bytes = datum_size_bytes * TILE_WIDTH;
 
     const uint32_t pages_per_tile = tile_size_bytes / page_size_bytes;
     uint32_t current_page_idx = src_offset / page_size_bytes + start_tile_id * pages_per_tile;

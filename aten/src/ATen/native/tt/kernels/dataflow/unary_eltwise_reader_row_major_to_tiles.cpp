@@ -29,7 +29,7 @@ void kernel_main() {
     const uint32_t tile_size_bytes = get_tile_size(cb_in0);
 
     const InterleavedAddrGen<true> a = {
-        .bank_base_address = a_addr, .page_size = datum_size_bytes * FACE_WIDTH};
+        .bank_base_address = a_addr, .page_size = datum_size_bytes * TILE_WIDTH};
 
     // Calculate the range of tiles this core should process
     const uint32_t end_tile_id = start_tile_id + n_tiles;
@@ -45,10 +45,10 @@ void kernel_main() {
                  // Deciding how large the buffer should be is a tradeoff.
         uint32_t cb_in0_addr = get_write_ptr(cb_in0);
 
-	for (uint32_t h = 0; h < TILE_HEIGHT * 2; ++h) {
-	  uint64_t a_noc_addr = get_noc_addr(i * TILE_HEIGHT * 2 + h, a);
-	  noc_async_read(a_noc_addr, cb_in0_addr, FACE_WIDTH * datum_size_bytes);
-	  cb_in0_addr += FACE_WIDTH * datum_size_bytes;
+	for (uint32_t h = 0; h < TILE_HEIGHT; ++h) {
+	  uint64_t a_noc_addr = get_noc_addr(i * TILE_HEIGHT + h, a);
+	  noc_async_read(a_noc_addr, cb_in0_addr, TILE_WIDTH * datum_size_bytes);
+	  cb_in0_addr += TILE_WIDTH * datum_size_bytes;
 	}
 
         noc_async_read_barrier();  // Wait until tile reads are done
