@@ -15,6 +15,7 @@
 #include <ATen/quantized/Quantizer.h>
 #include <ATen/vulkan/Context.h>
 #include <ATen/metal/Context.h>
+#include <ATen/tt/Context.h>
 #include <ATen/NamedTensorUtils.h>
 #include <ATen/Parallel.h>
 #include <c10/util/irange.h>
@@ -129,7 +130,7 @@ void copy_same_type_transpose_(Tensor& self, const Tensor& src) {
 // (e.g. XLA) may be supported by overriding copy_ and _copy_from.
 bool is_supported_device(Device device) {
   DeviceType device_type = device.type();
-  return device_type == kCPU || device_type == kCUDA || device_type == kHIP || device_type == kVulkan || device_type == kMetal || device_type == kMPS || device_type == kXPU;
+  return device_type == kCPU || device_type == kCUDA || device_type == kHIP || device_type == kVulkan || device_type == kMetal || device_type == kMPS || device_type == kXPU || device_type == kTT;
 }
 
 } // namespace
@@ -251,6 +252,10 @@ static Tensor & copy_impl(Tensor & self, const Tensor & src, bool non_blocking) 
 
   if (self.device().type() == at::kMetal || src.device().type() == at::kMetal) {
     return at::metal::metal_copy_(self, src);
+  }
+
+  if (self.device().type() == at::kTT || src.device().type() == at::kTT) {
+    return at::tt::tt_copy_(self, src);
   }
 
   // Exit early if self and src are views of the same data

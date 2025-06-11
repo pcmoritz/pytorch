@@ -35,6 +35,7 @@ DeviceType parse_type(const std::string& device_string) {
           {"hpu", DeviceType::HPU},
           {"mtia", DeviceType::MTIA},
           {"privateuseone", DeviceType::PrivateUse1},
+	  {"tt", DeviceType::TT},
       }};
   if (device_string == "mkldnn") {
     TORCH_WARN_ONCE(

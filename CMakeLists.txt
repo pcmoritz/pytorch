@@ -42,10 +42,8 @@ if(env_cxx_standard GREATER -1)
       "PyTorch requires -std=c++17. Please remove -std=c++ settings in your environment."
   )
 endif()
-set(CMAKE_CXX_STANDARD
-    17
-    CACHE STRING
-          "The C++ standard whose features are requested to build this target.")
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_C_STANDARD
     11
     CACHE STRING

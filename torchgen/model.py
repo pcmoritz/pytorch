@@ -88,6 +88,7 @@ class DispatchKey(Enum):
     MAIA = auto()
     Vulkan = auto()
     Metal = auto()
+    TT = auto()
     MKLDNN = auto()
     OpenGL = auto()
     OpenCL = auto()
@@ -281,6 +282,7 @@ dispatch_keys = [
     DispatchKey.MkldnnCPU,
     DispatchKey.CUDA,
     DispatchKey.MPS,
+    DispatchKey.TT,
     DispatchKey.XPU,
     DispatchKey.SparseXPU,
     DispatchKey.SparseCsrXPU,

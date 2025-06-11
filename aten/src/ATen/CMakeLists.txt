@@ -104,6 +104,7 @@ file(GLOB native_ao_sparse_cpp
             "native/ao_sparse/cpu/*.cpp"
             "native/ao_sparse/quantized/*.cpp"
             "native/ao_sparse/quantized/cpu/*.cpp")
+
 # MPS
 file(GLOB mps_cpp "mps/*.cpp")
 file(GLOB mps_mm "mps/*.mm")
@@ -112,6 +113,27 @@ file(GLOB_RECURSE native_mps_cpp "native/mps/*.cpp")
 file(GLOB_RECURSE native_mps_mm "native/mps/*.mm")
 file(GLOB_RECURSE native_mps_metal "native/mps/*.metal")
 file(GLOB_RECURSE native_mps_h "native/mps/*.h")
+
+# TT
+file(GLOB tt_h "tt/*.h")
+file(GLOB tt_cpp "tt/*.cpp")
+file(GLOB_RECURSE native_tt_h "native/tt/*.h")
+file(GLOB_RECURSE native_tt_srcs "native/tt/*.cpp")
+# We exclude the kernels since they will be compiled at runtime
+# in a just-in-time manner
+file(GLOB_RECURSE native_tt_kernels "native/tt/kernels/*.cpp")
+EXCLUDE(native_tt_srcs "${native_tt_srcs}" ${native_tt_kernels})
+
+list(APPEND ATen_CPU_INCLUDE "$ENV{TT_METAL_HOME}/tt_stl/" "$ENV{TT_METAL_HOME}/tt_metal/api/" "$ENV{TT_METAL_HOME}/tt_metal/third_party/umd/device/api/" "$ENV{TT_METAL_HOME}/tt_metal/hostdevcommon/api/" "$ENV{HOME}/reflect" "$ENV{HOME}/magic_enum/include" "$ENV{TT_METAL_HOME}/tt_metal/third_party/tracy/public/"
+  "$ENV{TT_METAL_HOME}/.cpmcache/boost/1359e136761ab2d10afa1c4e21086c8d824735cd/libs/core/include/"
+  "$ENV{TT_METAL_HOME}/.cpmcache/boost/1359e136761ab2d10afa1c4e21086c8d824735cd/libs/container/include/"
+  "$ENV{TT_METAL_HOME}/.cpmcache/boost/1359e136761ab2d10afa1c4e21086c8d824735cd/libs/config/include/"
+  "$ENV{TT_METAL_HOME}/.cpmcache/boost/1359e136761ab2d10afa1c4e21086c8d824735cd/libs/move/include/"
+  "$ENV{TT_METAL_HOME}/.cpmcache/boost/1359e136761ab2d10afa1c4e21086c8d824735cd/libs/intrusive/include/"
+  "$ENV{TT_METAL_HOME}/.cpmcache/boost/1359e136761ab2d10afa1c4e21086c8d824735cd/libs/assert/include/"
+  "$ENV{TT_METAL_HOME}/.cpmcache/tt-logger/300f1cdffa52ce1010e37283d4e1031431b0cf3b/include/"
+  "$ENV{TT_METAL_HOME}/.cpmcache/spdlog/b1c2586bb5c35a7929362e87f62433eb68206873/include/"
+)
 
 file(GLOB native_sparse_cpp "native/sparse/*.cpp")
 file(GLOB native_quantized_cpp
@@ -294,6 +316,9 @@ else()
   set(all_cpu_cpp ${all_cpu_cpp} ${metal_cpp})
 endif()
 
+# TT
+set(all_cpu_cpp ${all_cpu_cpp} ${tt_cpp} ${native_tt_srcs})
+
 if(USE_CUDA AND USE_ROCM)
   message(FATAL_ERROR "ATen doesn't not currently support simultaneously building with CUDA and ROCM")
 endif()
@@ -430,6 +455,8 @@ if(BLAS_FOUND)
     list(APPEND ATen_CPU_DEPENDENCY_LIBS ${BLAS_LIBRARIES})
   endif($ENV{TH_BINARY_BUILD})
 endif(BLAS_FOUND)
+
+list(APPEND ATen_CPU_DEPENDENCY_LIBS "$ENV{TT_METAL_HOME}/build/lib/libtt_metal.so")
 
 if(LAPACK_FOUND)
   list(APPEND ATen_CPU_DEPENDENCY_LIBS ${LAPACK_LIBRARIES})

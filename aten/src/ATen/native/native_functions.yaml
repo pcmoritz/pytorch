@@ -588,6 +588,7 @@
     SparseCsrCUDA: add_out_sparse_compressed_cuda
     MkldnnCPU: mkldnn_add_out
     MPS: add_out_mps
+    TT: add_out_tt
   tags: pointwise
 
 - func: _add_relu.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor
@@ -720,6 +721,7 @@
   dispatch:
     CPU, CUDA: all_out
     MPS: all_out_mps
+    TT: all_out_tt
 
 - func: all.dims_out(Tensor self, int[]? dim=None, bool keepdim=False, *, Tensor(a!) out) -> Tensor(a!)
   device_check: NoCheck   # TensorIterator
@@ -942,7 +944,7 @@
 - func: as_strided(Tensor(a) self, SymInt[] size, SymInt[] stride, SymInt? storage_offset=None) -> Tensor(a)
   variants: function, method
   dispatch:
-    ZeroTensor, CPU, CUDA: as_strided_tensorimpl
+    ZeroTensor, CPU, CUDA, TT: as_strided_tensorimpl
     Meta: as_strided_tensorimpl_meta_symint
     MPS: as_strided_tensorimpl_mps
     QuantizedCPU, QuantizedCUDA: as_strided_qtensorimpl
@@ -1370,6 +1372,7 @@
     CPU: bmm_out_cpu
     CUDA: bmm_out_cuda
     MPS: bmm_out_mps
+    TT: bmm_out_tt
     XPU: bmm_out_xpu
     SparseCPU: bmm_out_sparse_cpu
     SparseCUDA: bmm_out_sparse_cuda
@@ -1405,6 +1408,7 @@
     CPU: cat_out_cpu
     CUDA: cat_out_cuda
     MPS: cat_out_mps
+    TT: cat_out_tt
     QuantizedCPU: cat_out_quantized_cpu
 
 - func: cat.names(Tensor[] tensors, Dimname dim) -> Tensor
@@ -1817,6 +1821,7 @@
   dispatch:
     CPU, CUDA: cos_out
     MPS: cos_out_mps
+    TT: cos_out_tt
   tags: pointwise
 
 - func: cosh(Tensor self) -> Tensor
@@ -2386,6 +2391,7 @@
     CPU: empty_cpu
     CUDA: empty_cuda
     MPS: empty_mps
+    TT: empty_tt
     Meta: empty_meta_symint
     MkldnnCPU: empty_mkldnn
     SparseCPU, SparseCUDA: empty_sparse
@@ -2465,6 +2471,7 @@
     CPU: resize_
     CUDA: resize_cuda_
     MPS: resize_mps_
+    TT: resize_tt_
     QuantizedCPU: quantized_resize_cpu_
     SparseCsrCPU, SparseCsrCUDA, SparseCsrMeta: resize_sparse_csr_
   autogen: resize, resize.out
@@ -2506,6 +2513,7 @@
     CPU: empty_strided_cpu
     CUDA: empty_strided_cuda
     MPS: empty_strided_mps
+    TT: empty_strided_tt
     Meta: empty_strided_meta_symint
     QuantizedCPU, QuantizedCUDA: empty_strided_unknown_quantized
   autogen: empty_strided.out
@@ -2700,6 +2708,7 @@
   dispatch:
     CPU, CUDA: fill_
     MPS: fill_scalar_mps
+    TT: fill_scalar_tt
     QuantizedCPU, QuantizedCUDA: fill_quantized_
     Meta: fill_meta_
     SparseCsrCPU, SparseCsrCUDA, SparseCsrMeta: fill_sparse_csr_
@@ -3956,6 +3965,7 @@
   dispatch:
     CPU, CUDA: mean_out
     MPS: mean_out_mps
+    TT: mean_out_tt
     QuantizedCPU: mean_out_quantized_cpu
 
 - func: mean.names_dim(Tensor self, Dimname[1] dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor
@@ -4141,6 +4151,7 @@
     CPU: mm_out_cpu
     CUDA: mm_out_cuda
     MPS: mm_out_mps
+    TT: mm_out_tt
     XPU: mm_out_xpu
     SparseCPU, SparseCUDA: _sparse_mm_out
     SparseCsrCPU, SparseCsrCUDA, SparseCsrMeta: _sparse_csr_mm_out
@@ -4244,6 +4255,7 @@
   dispatch:
     CPU, CUDA: mul_out
     MPS: mul_out_mps
+    TT: mul_out_tt
     SparseCPU: mul_out_sparse_cpu
     SparseCUDA: mul_out_sparse_cuda
     SparseCsrCPU, SparseCsrCUDA, SparseCsrMeta: mul_out_sparse_csr
@@ -4893,6 +4905,7 @@
   dispatch:
     CPU, CUDA: neg_out
     MPS: neg_out_mps
+    TT: neg_out_tt
     SparseCPU, SparseCUDA: neg_out_sparse
     SparseCsrCPU, SparseCsrCUDA, SparseCsrMeta: neg_sparse_csr_out
   tags: pointwise
@@ -5034,6 +5047,7 @@
   dispatch:
     CPU, CUDA: relu
     MPS: relu_mps
+    TT: relu_tt
     MkldnnCPU: mkldnn_relu
     QuantizedCPU: relu_quantized_cpu
     QuantizedCUDA: relu_quantized_cuda
@@ -5175,6 +5189,7 @@
   dispatch:
     CPU, CUDA: rsqrt_out
     MPS: rsqrt_out_mps
+    TT: rsqrt_out_tt
   tags: pointwise
 
 - func: select.Dimname(Tensor(a) self, Dimname dim, int index) -> Tensor(a)
@@ -5247,6 +5262,7 @@
   dispatch:
     CPU, CUDA: silu_out
     MPS: silu_out_mps
+    TT: silu_out_tt
   tags: pointwise
 
 - func: silu_backward.grad_input(Tensor grad_output, Tensor self, *, Tensor(a!) grad_input) -> Tensor(a!)
@@ -5361,6 +5377,7 @@
   dispatch:
     CPU, CUDA: sin_out
     MPS: sin_out_mps
+    TT: sin_out_tt
     SparseCsrCPU, SparseCsrCUDA, SparseCsrMeta: sin_sparse_csr_out
     SparseCPU, SparseCUDA: sin_sparse_out
   tags: pointwise
@@ -5565,6 +5582,7 @@
     CPU: softmax_cpu_out
     CUDA: softmax_cuda_out
     MPS: softmax_mps_out
+    TT: softmax_tt_out
 
 - func: _softmax_backward_data(Tensor grad_output, Tensor output, int dim, ScalarType input_dtype) -> Tensor
   structured_delegate: _softmax_backward_data.out
@@ -6514,14 +6532,14 @@
   device_check: NoCheck   # TensorIterator
   variants: function, method
   dispatch:
-    CPU, CUDA, MPS: where
+    CPU, CUDA, MPS, TT: where
     NestedTensorCPU, NestedTensorCUDA: NestedTensor_where
   tags: [core, pointwise]
 
 - func: where.self_out(Tensor condition, Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)
   device_check: NoCheck   # TensorIterator
   dispatch:
-    CPU, CUDA, MPS: where_self_out
+    CPU, CUDA, MPS, TT: where_self_out
     NestedTensorCPU, NestedTensorCUDA: NestedTensor_where_out
 
 - func: where.ScalarSelf(Tensor condition, Scalar self, Tensor other) -> Tensor
@@ -7025,6 +7043,7 @@
     CPU: addmm_out_cpu
     CUDA: addmm_out_cuda
     MPS: addmm_out_mps
+    TT: addmm_out_tt
     XPU: addmm_out_xpu
     SparseCPU: addmm_out_sparse_dense_cpu
     SparseCUDA: addmm_out_sparse_dense_cuda
@@ -7810,6 +7829,7 @@
     CPU: _local_scalar_dense_cpu
     CUDA: _local_scalar_dense_cuda
     MPS: _local_scalar_dense_mps
+    TT: _local_scalar_dense_tt
   variants: function
 
 # MPS LSTM implementation
@@ -8082,7 +8102,7 @@
   device_check: NoCheck
   device_guard: False
   dispatch:
-    ZeroTensor, Meta, CPU, CUDA, QuantizedCPU, QuantizedCUDA, MPS: view
+    ZeroTensor, Meta, CPU, CUDA, QuantizedCPU, QuantizedCUDA, MPS, TT: view
     MkldnnCPU: mkldnn_view
     NestedTensorCPU, NestedTensorCUDA: view_nested
   tags: core
@@ -8747,6 +8767,7 @@
   dispatch:
     CPU, CUDA: uniform_
     MPS: uniform_mps_
+    TT: uniform_tt_
     Meta: uniform_meta_
   autogen: uniform, uniform.out
 
@@ -8812,6 +8833,7 @@
     CPU: tril_cpu
     CUDA: tril_cuda
     MPS: tril_mps_out
+    TT: tril_tt_out
 
 - func: tril(Tensor self, int diagonal=0) -> Tensor
   structured_delegate: tril.out
@@ -9231,6 +9253,7 @@
     SparseCPU: index_select_sparse_cpu
     SparseCUDA: index_select_sparse_cuda
     MPS: index_select_mps
+    TT: index_select_tt
   tags: core
 
 - func: index_select.dimname_out(Tensor self, Dimname dim, Tensor index, *, Tensor(a!) out) -> Tensor(a!)
@@ -10254,6 +10277,7 @@
     CPU, CUDA: pow_Tensor_Scalar_out
     SparseCPU, SparseCUDA: pow_out_sparse_scalar
     MPS: pow_tensor_scalar_out_mps
+    TT: pow_tensor_scalar_out_tt
   tags: pointwise
 
 - func: pow.Tensor_Scalar(Tensor self, Scalar exponent) -> Tensor
@@ -13199,6 +13223,7 @@
   structured_inherits: TensorIteratorBase
   dispatch:
     CPU, CUDA, MPS: isneginf_out
+    TT: isneginf_out_tt
     SparseCPU, SparseCUDA: isneginf_sparse_out
     SparseCsrCPU, SparseCsrCUDA, SparseCsrMeta: isneginf_sparse_csr_out
   tags: pointwise
