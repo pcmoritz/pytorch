@@ -10,15 +10,18 @@
 #include "cmath_common.h"
 #include "llk_math_common.h"
 #include "compute_kernel_api/tile_move_copy.h"
+#include "compute_kernel_api/matmul.h"
 
 using namespace ckernel;
 using std::uint32_t;
+using namespace ckernel::math;
+using namespace ckernel::unpacker;
 
 #ifndef HF
 #define HF 0
 #endif
 
-template <int MATH_FIDELITY_DESC, DstTileFaceLayout FaceLayout = DstTileFaceLayout::ColMajor>
+template <int MATH_FIDELITY_DESC, DstTileFaceLayout FaceLayout = DstTileFaceLayout::RowMajor>
 inline void gemm_configure_addrmod(
     const bool transpose,
     const std::uint32_t ct_dim,
@@ -92,7 +95,7 @@ inline void gemm_configure_addrmod(
     }
 }
 
-template <int NUM_FIDELITY_PHASES, DstTileFaceLayout FaceLayout = DstTileFaceLayout::ColMajor>
+template <int NUM_FIDELITY_PHASES, DstTileFaceLayout FaceLayout = DstTileFaceLayout::RowMajor>
 inline void gemm_configure_mop(
     bool transpose,
     const std::uint32_t ct_dim,
@@ -109,6 +112,7 @@ inline void gemm_configure_mop(
     load_replay_buf(
         ckernel::math::replay_buf_offset,
         replay_buf_len,
+        false,
         [high_fidelity, reuse_a, transpose]
         {
             TTI_MVMUL(p_setrwc::CLR_NONE, 0, ADDR_MOD_0, 0); // B0A0
@@ -142,7 +146,7 @@ inline void gemm_configure_mop(
         });
 
     constexpr uint inner_loops = high_fidelity ? NUM_FIDELITY_PHASES : 1;
-    ckernel_template tmp(1, inner_loops, lltt::replay_insn(ckernel::math::replay_buf_offset, replay_buf_len));
+    ckernel_template tmp(1, inner_loops, ckernel_template::replay_insn(ckernel::math::replay_buf_offset, replay_buf_len));
 
     if constexpr (high_fidelity) {
         if (reuse_a) {
@@ -154,7 +158,7 @@ inline void gemm_configure_mop(
     tmp.program(instrn_buffer);
 }
 
-template <int MATH_FIDELITY_DESC, DstTileFaceLayout FaceLayout = DstTileFaceLayout::ColMajor>
+template <int MATH_FIDELITY_DESC, DstTileFaceLayout FaceLayout = DstTileFaceLayout::RowMajor>
 inline void gemm_init(
     const std::uint32_t transpose = 0,
     const std::uint32_t ct_dim = 1,
@@ -171,7 +175,7 @@ inline void gemm_init(
     math::reset_counters(p_setrwc::SET_ABD_F);
 }
 
-template <int MATH_FIDELITY_DESC, DstTileFaceLayout FaceLayout = DstTileFaceLayout::ColMajor>
+template <int MATH_FIDELITY_DESC, DstTileFaceLayout FaceLayout = DstTileFaceLayout::RowMajor>
 inline void gemm_compute(
     uint dst_index, 
     const bool transpose = false, 
