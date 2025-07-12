@@ -5,9 +5,6 @@
 constexpr uint32_t TILE_HEIGHT = 32;
 constexpr uint32_t TILE_WIDTH = 32;
 
-constexpr uint32_t FACE_HEIGHT = 16;
-constexpr uint32_t FACE_WIDTH = 16;
-
 void kernel_main() {
     uint32_t dst_addr = get_arg_val<uint32_t>(0);
     uint32_t num_tiles = get_arg_val<uint32_t>(1);
@@ -36,9 +33,7 @@ void kernel_main() {
     const DataFormat data_format = get_dataformat(cb_id_out);
 
     const InterleavedAddrGen<dst_is_dram> s = {
-	.bank_base_address = dst_addr, .page_size = datum_size_bytes * FACE_WIDTH};
-
-    const uint32_t face_offset[4] = {0, FACE_WIDTH, N * FACE_HEIGHT, N * FACE_HEIGHT + FACE_WIDTH};
+	.bank_base_address = dst_addr, .page_size = datum_size_bytes * TILE_WIDTH};
 
 #ifdef BACKWARDS
     uint32_t end_id = start_id - num_tiles;
@@ -50,17 +45,14 @@ void kernel_main() {
         cb_wait_front(cb_id_out, onetile);
         uint32_t l1_read_addr = get_read_ptr(cb_id_out);
 
-	for (uint32_t f = 0; f < 4; ++f) {
-#pragma GCC unroll FACE_HEIGHT
-          for (uint32_t h = 0; h < FACE_HEIGHT; ++h) {
-            uint64_t offset = start_id_w * TILE_WIDTH + start_id_h * TILE_HEIGHT * N + face_offset[f] + h * N;
-            uint64_t s_noc_addr = get_noc_addr(offset / FACE_WIDTH, s);
+	for (uint32_t h = 0; h < TILE_HEIGHT; ++h) {
+	  uint64_t offset = start_id_w * TILE_WIDTH + start_id_h * TILE_HEIGHT * N + h * N;
+	  uint64_t s_noc_addr = get_noc_addr(offset / TILE_WIDTH, s);
 
-            noc_async_write(l1_read_addr,
-                            s_noc_addr,
-                            FACE_WIDTH * datum_size_bytes);
-	    l1_read_addr += FACE_WIDTH * datum_size_bytes;
-          }
+	  noc_async_write(l1_read_addr,
+			  s_noc_addr,
+			  TILE_WIDTH * datum_size_bytes);
+	  l1_read_addr += TILE_WIDTH * datum_size_bytes;
 	}
 
         noc_async_write_barrier();  // This will wait until the write is done. As an alternative,
