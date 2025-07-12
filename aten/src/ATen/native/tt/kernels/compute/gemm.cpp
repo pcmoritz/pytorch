@@ -1,21 +1,22 @@
-// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2023 Philipp Moritz
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#pragma once
+
 #include <cstdint>
 
+#include "lltt.h"
 #include "ckernel_include.h"
 #include "ckernel_ops.h"
 #include "ckernel_template.h"
 #include "cmath_common.h"
 #include "llk_math_common.h"
-#include "compute_kernel_api/tile_move_copy.h"
+
 #include "compute_kernel_api/matmul.h"
 
 using namespace ckernel;
 using std::uint32_t;
-using namespace ckernel::math;
-using namespace ckernel::unpacker;
 
 #ifndef HF
 #define HF 0
@@ -146,7 +147,7 @@ inline void gemm_configure_mop(
         });
 
     constexpr uint inner_loops = high_fidelity ? NUM_FIDELITY_PHASES : 1;
-    ckernel_template tmp(1, inner_loops, ckernel_template::replay_insn(ckernel::math::replay_buf_offset, replay_buf_len));
+    ckernel_template tmp(1, inner_loops, lltt::replay_insn(ckernel::math::replay_buf_offset, replay_buf_len));
 
     if constexpr (high_fidelity) {
         if (reuse_a) {

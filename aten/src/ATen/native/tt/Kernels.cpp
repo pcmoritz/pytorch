@@ -360,7 +360,7 @@ at::Tensor& mm_out_tt(const at::Tensor & self, const at::Tensor & mat2, at::Tens
     // TODO: The paths are currently hard-coded, figure out how to fix it
     "/home/pcmoritz/pytorch/aten/src/ATen/native/tt/kernels/dataflow/matmul_reader_row_major_to_tiles.cpp",
     "/home/pcmoritz/pytorch/aten/src/ATen/native/tt/kernels/dataflow/matmul_writer_row_major_to_tiles.cpp",
-    "/home/pcmoritz/pytorch/aten/src/ATen/native/tt/kernels/compute/bmm.cpp",
+    "/home/pcmoritz/pytorch/aten/src/ATen/native/tt/kernels/compute/gemm.cpp",
     reader_compile_time_args,
     writer_compile_time_args,
     compute_compile_time_args,
