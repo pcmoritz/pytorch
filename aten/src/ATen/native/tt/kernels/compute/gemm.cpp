@@ -7,10 +7,12 @@
 #include <cstdint>
 
 #include "lltt.h"
+#include "circular_buffer.h"
 #include "ckernel_include.h"
 #include "ckernel_ops.h"
 #include "ckernel_template.h"
 #include "cmath_common.h"
+#include "cunpack_common.h"
 #include "llk_math_common.h"
 
 #include "compute_kernel_api/matmul.h"
@@ -21,6 +23,131 @@ using std::uint32_t;
 #ifndef HF
 #define HF 0
 #endif
+
+inline void gemm_unpack_AB_configure_mop(
+    const std::uint32_t ct_dim,
+    const std::uint32_t rt_dim,
+    const std::uint32_t kt_dim
+) {
+    const bool reuse_a = ct_dim >= rt_dim;
+    const std::uint32_t replay_buf_prog_len = 12;
+    const std::uint32_t replay_buf_run_len  = replay_buf_prog_len / 2;
+    if (reuse_a) {
+        load_replay_buf(
+            0,
+	    replay_buf_prog_len,
+	    false,
+	    // Lambda function to set up replay buffer
+	    []{
+	        TTI_UNPACR(SrcA, 0, 0, 0, 0, 1 /*Set OvrdThreadId*/, 1 /*Set Dvalid*/, p_unpacr::RAREFYB_DISABLE, 0, 0 /* Set ContextIdInc */, 0, 0, 1);
+	        TTI_RDCFG(p_gpr_unpack::TMP0, THCON_SEC0_REG3_Base_address_ADDR32);
+	        TTI_ADDDMAREG(0, p_gpr_unpack::TMP0, p_gpr_unpack::TMP0, p_gpr_unpack::TILE_SIZE_A);
+	        TTI_STALLWAIT(p_stall::STALL_CFG, p_stall::THCON);
+	        TTI_WRCFG(p_gpr_unpack::TMP0, 0, THCON_SEC0_REG3_Base_address_ADDR32);
+	        // Added to ensure WRCFG instruction has finished, since it takes 2 cycles.
+	        TTI_NOP;
+
+	        TTI_UNPACR(SrcA, 0, 0, 0, 0, 1 /*Set OvrdThreadId*/, 1 /*Set Dvalid*/, p_unpacr::RAREFYB_DISABLE, 0, 0 /* Set ContextIdInc */, 0, 0, 1);
+                TTI_RDCFG(p_gpr_unpack::TMP0, THCON_SEC0_REG3_Base_cntx1_address_ADDR32);
+                TTI_ADDDMAREG(0, p_gpr_unpack::TMP0, p_gpr_unpack::TMP0, p_gpr_unpack::TILE_SIZE_A);
+                TTI_STALLWAIT(p_stall::STALL_CFG, p_stall::THCON);
+                TTI_WRCFG(p_gpr_unpack::TMP0, 0, THCON_SEC0_REG3_Base_cntx1_address_ADDR32);
+	        // Added to ensure WRCFG instruction has finished, since it takes 2 cycles.
+	        TTI_NOP;
+	    }
+        );
+    } else {
+        load_replay_buf(
+	    0,
+	    replay_buf_prog_len,
+	    false,
+	    // Lambda function to set up replay buffer
+	    []{
+	        TTI_UNPACR(SrcB, 0, 0, 0, 0, 1 /*Set OvrdThreadId*/, 1 /*Set Dvalid*/, p_unpacr::RAREFYB_DISABLE, 0, 0 /* Set ContextIdInc */, 0, 0, 1);
+		TTI_RDCFG(p_gpr_unpack::TMP0, THCON_SEC1_REG3_Base_address_ADDR32);
+		TTI_ADDDMAREG(0, p_gpr_unpack::TMP0, p_gpr_unpack::TMP0, p_gpr_unpack::TMP_LO);
+		TTI_STALLWAIT(p_stall::STALL_CFG, p_stall::THCON);
+		TTI_WRCFG(p_gpr_unpack::TMP0, 0, THCON_SEC1_REG3_Base_address_ADDR32);
+		// Added to ensure WRCFG instruction has finished, since it takes 2 cycles.
+		TTI_NOP;
+
+		TTI_UNPACR(SrcB, 0, 0, 0, 0, 1 /*Set OvrdThreadId*/, 1 /*Set Dvalid*/, p_unpacr::RAREFYB_DISABLE, 0, 0 /* Set ContextIdInc */, 0, 0, 1);
+		TTI_RDCFG(p_gpr_unpack::TMP0, THCON_SEC1_REG3_Base_cntx1_address_ADDR32);
+		TTI_ADDDMAREG(0, p_gpr_unpack::TMP0, p_gpr_unpack::TMP0, p_gpr_unpack::TMP_LO);
+		TTI_STALLWAIT(p_stall::STALL_CFG, p_stall::THCON);
+		TTI_WRCFG(p_gpr_unpack::TMP0, 0, THCON_SEC1_REG3_Base_cntx1_address_ADDR32);
+		// Added to ensure WRCFG instruction has finished, since it takes 2 cycles.
+		TTI_NOP;
+	    }
+	);
+    }
+    ckernel_unpack_template tmp = ckernel_unpack_template(
+        false,                                    // src B
+	false,                                    // halo - just used for 4 unpacks
+	lltt::replay_insn(0, replay_buf_run_len), // runs when context is 0
+	0,
+	0,
+	0,
+	lltt::replay_insn(replay_buf_run_len, replay_buf_run_len), // runs when context is 1
+	0,
+	0
+    );
+    tmp.program(instrn_buffer);
+}
+
+inline void gemm_unpack_AB_init(
+    const std::uint32_t unpA_operand_id,
+    const std::uint32_t unpB_operand_id,
+    const std::uint32_t transpose = 0,
+    const std::uint32_t ct_dim = 1,
+    const std::uint32_t rt_dim = 1,
+    const std::uint32_t kt_dim = 1
+) {
+    const std::uint32_t unpA_num_faces = 4;
+    const std::uint32_t unpB_num_faces = 4;
+ 
+    const std::uint32_t unpA_face_r_dim = FACE_R_DIM;
+    const std::uint32_t unpB_face_r_dim = FACE_R_DIM;
+
+    const std::uint32_t unpA_tile_size = get_local_cb_interface(unpA_operand_id).fifo_page_size;
+    const std::uint32_t unpB_tile_size = get_local_cb_interface(unpB_operand_id).fifo_page_size;
+ 
+    const std::uint32_t within_face_16x16_transpose = transpose;
+
+    ckernel::unpacker::configure_unpack_AB<true>(
+        unpack_src_format[unpA_operand_id],
+	unpack_src_format[unpB_operand_id],
+	unpack_dst_format[unpA_operand_id],
+	unpack_dst_format[unpB_operand_id],
+        unpA_face_r_dim,
+        unpB_face_r_dim,
+	within_face_16x16_transpose,
+	unpA_num_faces,
+	unpB_num_faces
+    );
+
+    // Configure tile size in datums
+    const uint32_t unpA_x_end = unpA_num_faces * unpA_face_r_dim * FACE_C_DIM - 1;
+    const uint32_t unpB_x_end = unpB_num_faces * unpB_face_r_dim * FACE_C_DIM - 1;
+    TT_SETADCXX(p_setadc::UNP_A, unpA_x_end, 0x0);
+    TT_SETADCXX(p_setadc::UNP_B, unpB_x_end, 0x0);
+
+    regfile[p_gpr_unpack::TILE_SIZE_A] = unpA_tile_size;
+    regfile[p_gpr_unpack::TILE_SIZE_B] = unpB_tile_size;
+    sync_regfile_write(p_gpr_unpack::TILE_SIZE_B);
+
+    // also turn on within_face_16x16_transpose if it was turned off by datacopy at runtime
+    // on WH, the unpacker performs both transpose of faces as well as transpose each face.
+    // the former is configured in mop, the latter is configured in cfg register in hw_configure
+    // in large matmul, datacopy will disable the transpose of faces, so we need it turn it back on for matmul.
+    cfg_reg_rmw_tensix<THCON_SEC0_REG2_Haloize_mode_RMW>(transpose);
+
+    TTI_SETADCZW(0b011, 0, 0, 0, 0, 0b1111);
+
+    TT_SETDMAREG(0, LOWER_HALFWORD(kt_dim), 0, LO_16(p_gpr_unpack::KT_DIM)); // store kt_dim to gpr for scaling tile size
+
+    gemm_unpack_AB_configure_mop(ct_dim, rt_dim, kt_dim);
+}
 
 template <int MATH_FIDELITY_DESC, DstTileFaceLayout FaceLayout = DstTileFaceLayout::RowMajor>
 inline void gemm_configure_addrmod(
@@ -161,11 +288,15 @@ inline void gemm_configure_mop(
 
 template <int MATH_FIDELITY_DESC, DstTileFaceLayout FaceLayout = DstTileFaceLayout::RowMajor>
 inline void gemm_init(
+    uint32_t in0_cb_id, uint32_t in1_cb_id, uint32_t out_cb_id,
     const std::uint32_t transpose = 0,
     const std::uint32_t ct_dim = 1,
     const std::uint32_t rt_dim = 1,
     const std::uint32_t kt_dim = 1)
 {
+    UNPACK(gemm_unpack_AB_init(in0_cb_id, in1_cb_id, transpose));
+    MATH(gemm_math_init);
+  
     gemm_configure_addrmod<MATH_FIDELITY_DESC, FaceLayout>(
         transpose, ct_dim, rt_dim, kt_dim);
 
@@ -216,8 +347,12 @@ void MAIN {
     uint32_t num_tiles = get_arg_val<uint32_t>(0);
     uint32_t Kt = get_arg_val<uint32_t>(1);
 
+    DPRINT << "XX gemm" << ENDL();
+
     // Initialize the simplified GEMM kernel
-    gemm_init<HF>(is_b_transposed);
+    gemm_init<HF>(tt::CBIndex::c_0, tt::CBIndex::c_1, tt::CBIndex::c_16, is_b_transposed);
+
+    DPRINT << "XX gemm after init" << ENDL();
 
     // Main computation loop
     for (uint32_t tile = 0; tile < num_tiles; tile++) {
@@ -227,11 +362,17 @@ void MAIN {
             cb_wait_front(tt::CBIndex::c_0, onetile);
             cb_wait_front(tt::CBIndex::c_1, onetile);
 
-            gemm_compute<HF>(0, is_b_transposed);
+	    DPRINT << "XX gemm before compute" << ENDL();
+
+            // gemm_compute<HF>(0, is_b_transposed);
+
+	    DPRINT << "XX gemm after compute" << ENDL();
 
             cb_pop_front(tt::CBIndex::c_0, onetile);
             cb_pop_front(tt::CBIndex::c_1, onetile);
         }
+
+	DPRINT << "XX gemm ater loop" << ENDL();
 
         cb_reserve_back(tt::CBIndex::c_16, onetile);
         pack_tile(0, tt::CBIndex::c_16);
@@ -239,5 +380,7 @@ void MAIN {
 
         release_dst();
     }
+
+    DPRINT << "XX finish" << ENDL();
 }
 }  // namespace NAMESPACE
