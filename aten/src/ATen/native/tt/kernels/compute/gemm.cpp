@@ -34,7 +34,7 @@ inline void gemm_unpack_AB_configure_mop(
     const std::uint32_t replay_buf_run_len  = replay_buf_prog_len / 2;
     if (reuse_a) {
         load_replay_buf(
-            0,
+        0,
 	    replay_buf_prog_len,
 	    false,
 	    // Lambda function to set up replay buffer
@@ -48,10 +48,10 @@ inline void gemm_unpack_AB_configure_mop(
 	        TTI_NOP;
 
 	        TTI_UNPACR(SrcA, 0, 0, 0, 0, 1 /*Set OvrdThreadId*/, 1 /*Set Dvalid*/, p_unpacr::RAREFYB_DISABLE, 0, 0 /* Set ContextIdInc */, 0, 0, 1);
-                TTI_RDCFG(p_gpr_unpack::TMP0, THCON_SEC0_REG3_Base_cntx1_address_ADDR32);
-                TTI_ADDDMAREG(0, p_gpr_unpack::TMP0, p_gpr_unpack::TMP0, p_gpr_unpack::TILE_SIZE_A);
-                TTI_STALLWAIT(p_stall::STALL_CFG, p_stall::THCON);
-                TTI_WRCFG(p_gpr_unpack::TMP0, 0, THCON_SEC0_REG3_Base_cntx1_address_ADDR32);
+            TTI_RDCFG(p_gpr_unpack::TMP0, THCON_SEC0_REG3_Base_cntx1_address_ADDR32);
+            TTI_ADDDMAREG(0, p_gpr_unpack::TMP0, p_gpr_unpack::TMP0, p_gpr_unpack::TILE_SIZE_A);
+            TTI_STALLWAIT(p_stall::STALL_CFG, p_stall::THCON);
+            TTI_WRCFG(p_gpr_unpack::TMP0, 0, THCON_SEC0_REG3_Base_cntx1_address_ADDR32);
 	        // Added to ensure WRCFG instruction has finished, since it takes 2 cycles.
 	        TTI_NOP;
 	    }
@@ -95,45 +95,43 @@ inline void gemm_unpack_AB_configure_mop(
     tmp.program(instrn_buffer);
 }
 
-inline void gemm_unpack_AB_init(
-    const std::uint32_t unpA_operand_id,
-    const std::uint32_t unpB_operand_id,
+inline void gemm_unpack_init(
+    const std::uint32_t A_id,
+    const std::uint32_t B_id,
     const std::uint32_t transpose = 0,
     const std::uint32_t ct_dim = 1,
     const std::uint32_t rt_dim = 1,
     const std::uint32_t kt_dim = 1
 ) {
-    const std::uint32_t unpA_num_faces = 4;
-    const std::uint32_t unpB_num_faces = 4;
+    const std::uint32_t A_num_faces = 4;
+    const std::uint32_t B_num_faces = 4;
  
-    const std::uint32_t unpA_face_r_dim = FACE_R_DIM;
-    const std::uint32_t unpB_face_r_dim = FACE_R_DIM;
+    const std::uint32_t A_face_r_dim = FACE_R_DIM;
+    const std::uint32_t B_face_r_dim = FACE_R_DIM;
 
-    const std::uint32_t unpA_tile_size = get_local_cb_interface(unpA_operand_id).fifo_page_size;
-    const std::uint32_t unpB_tile_size = get_local_cb_interface(unpB_operand_id).fifo_page_size;
+    const std::uint32_t A_tile_size = get_local_cb_interface(A_id).fifo_page_size;
+    const std::uint32_t B_tile_size = get_local_cb_interface(B_id).fifo_page_size;
  
-    const std::uint32_t within_face_16x16_transpose = transpose;
-
     ckernel::unpacker::configure_unpack_AB<true>(
-        unpack_src_format[unpA_operand_id],
-	unpack_src_format[unpB_operand_id],
-	unpack_dst_format[unpA_operand_id],
-	unpack_dst_format[unpB_operand_id],
-        unpA_face_r_dim,
-        unpB_face_r_dim,
-	within_face_16x16_transpose,
-	unpA_num_faces,
-	unpB_num_faces
+        unpack_src_format[A_id],
+        unpack_src_format[B_id],
+        unpack_dst_format[A_id],
+        unpack_dst_format[B_id],
+        A_face_r_dim,
+        B_face_r_dim,
+        transpose,
+        A_num_faces,
+        B_num_faces
     );
 
     // Configure tile size in datums
-    const uint32_t unpA_x_end = unpA_num_faces * unpA_face_r_dim * FACE_C_DIM - 1;
-    const uint32_t unpB_x_end = unpB_num_faces * unpB_face_r_dim * FACE_C_DIM - 1;
-    TT_SETADCXX(p_setadc::UNP_A, unpA_x_end, 0x0);
-    TT_SETADCXX(p_setadc::UNP_B, unpB_x_end, 0x0);
+    const uint32_t A_x_end = A_num_faces * A_face_r_dim * FACE_C_DIM - 1;
+    const uint32_t B_x_end = B_num_faces * B_face_r_dim * FACE_C_DIM - 1;
+    TT_SETADCXX(p_setadc::UNP_A, A_x_end, 0x0);
+    TT_SETADCXX(p_setadc::UNP_B, B_x_end, 0x0);
 
-    regfile[p_gpr_unpack::TILE_SIZE_A] = unpA_tile_size;
-    regfile[p_gpr_unpack::TILE_SIZE_B] = unpB_tile_size;
+    regfile[p_gpr_unpack::TILE_SIZE_A] = A_tile_size;
+    regfile[p_gpr_unpack::TILE_SIZE_B] = B_tile_size;
     sync_regfile_write(p_gpr_unpack::TILE_SIZE_B);
 
     // also turn on within_face_16x16_transpose if it was turned off by datacopy at runtime
@@ -286,25 +284,42 @@ inline void gemm_configure_mop(
     tmp.program(instrn_buffer);
 }
 
+template <int NUM_FIDELITY_PHASES, int THROTTLE_LEVEL = 0>
+inline void gemm_math_init(
+    const std::uint32_t A_id,
+    const std::uint32_t B_id,
+    const std::uint32_t transpose = 0,
+    const std::uint32_t ct_dim = 1,
+    const std::uint32_t rt_dim = 1,
+    const std::uint32_t kt_dim = 1) {
+    gemm_configure_addrmod<MATH_FIDELITY_DESC, FaceLayout, THROTTLE_LEVEL>(transpose, ct_dim, rt_dim, kt_dim);
+
+    constexpr int MATH_FIDELITY_PHASES = get_math_num_fidelity_phases(MATH_FIDELITY_DESC);
+    gemm_configure_mop<MATH_FIDELITY_PHASES, FaceLayout>(transpose > 0, ct_dim, rt_dim, kt_dim);
+    math::reset_counters(p_setrwc::SET_ABD_F);
+
+    llk_math_pack_sync_init<DST_ACCUM_MODE>();
+
+    llk_math_hw_configure_disaggregated(A_id, B_id)
+}
+
+inline void gemm_pack_init(const std::uint32_t C_id, const std::uint32_t transpose = 0) {
+    llk_pack_hw_configure_disaggregated<DST_ACCUM_MODE, false>(C_id);
+    llk_pack_init(C_id);
+    llk_pack_dest_init<DST_ACCUM_MODE, false>();
+}
+
 template <int MATH_FIDELITY_DESC, DstTileFaceLayout FaceLayout = DstTileFaceLayout::RowMajor>
 inline void gemm_init(
-    uint32_t in0_cb_id, uint32_t in1_cb_id, uint32_t out_cb_id,
+    uint32_t A_id, uint32_t B_id, uint32_t C_id,
     const std::uint32_t transpose = 0,
     const std::uint32_t ct_dim = 1,
     const std::uint32_t rt_dim = 1,
     const std::uint32_t kt_dim = 1)
 {
-    UNPACK(gemm_unpack_AB_init(in0_cb_id, in1_cb_id, transpose));
-    MATH(gemm_math_init);
-  
-    gemm_configure_addrmod<MATH_FIDELITY_DESC, FaceLayout>(
-        transpose, ct_dim, rt_dim, kt_dim);
-
-    constexpr int MATH_FIDELITY_PHASES = get_math_num_fidelity_phases(MATH_FIDELITY_DESC);
-    gemm_configure_mop<MATH_FIDELITY_PHASES, FaceLayout>(
-        transpose > 0, ct_dim, rt_dim, kt_dim);
-
-    math::reset_counters(p_setrwc::SET_ABD_F);
+    UNPACK(gemm_unpack_init(A_id, B_id, transpose));
+    MATH(gemm_math_init(A_id, B_id, transpose));
+    PACK(gemm_pack_init(C_id, transpose));
 }
 
 template <int MATH_FIDELITY_DESC, DstTileFaceLayout FaceLayout = DstTileFaceLayout::RowMajor>
