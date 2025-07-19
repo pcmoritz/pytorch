@@ -300,8 +300,7 @@ inline void gemm_math_init(
 
     _llk_math_pack_sync_init_<DST_SYNC_MODE, DST_ACCUM_MODE>();
 
-
-    llk_math_hw_configure_disaggregated(A_id, B_id)
+    _llk_math_hw_configure_<false, false>(unpack_dst_format[A_id], unpack_dst_format[B_id]);
 }
 
 inline void gemm_pack_init(const std::uint32_t C_id, const std::uint32_t transpose = 0) {
