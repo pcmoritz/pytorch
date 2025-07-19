@@ -304,6 +304,7 @@ inline void gemm_math_init(
     _llk_math_hw_configure_<false, false>(unpack_dst_format[A_id], unpack_dst_format[B_id]);
 }
 
+#ifdef TRISC_PACK
 inline void gemm_pack_init(const std::uint32_t C_id, const std::uint32_t transpose = 0) {
     const std::uint32_t face_r_dim = get_output_face_r_dim(C_id);
     const std::uint32_t tile_c_dim = get_output_tile_c_dim(C_id);
@@ -328,6 +329,7 @@ inline void gemm_pack_init(const std::uint32_t C_id, const std::uint32_t transpo
     llk_pack_init(C_id);
     llk_pack_dest_init<DST_ACCUM_MODE, false>();
 }
+#endif
 
 template <int MATH_FIDELITY_DESC, DstTileFaceLayout FaceLayout = DstTileFaceLayout::RowMajor>
 inline void gemm_init(
