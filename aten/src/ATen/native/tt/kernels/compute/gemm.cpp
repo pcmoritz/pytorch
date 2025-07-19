@@ -304,14 +304,26 @@ inline void gemm_math_init(
 }
 
 inline void gemm_pack_init(const std::uint32_t C_id, const std::uint32_t transpose = 0) {
-    llk_pack_params_t llk_pack_params = {
-        .pack_output = C_id,
-        .relu_config = {
-            .f = {
-                .ApplyRelu = (std::uint32_t)ReluType::NO_RELU,
-                .Threshold = 0,
-            }}};
-    llk_pack_hw_configure<DST_ACCUM_MODE, false, false>(&llk_pack_params);
+    const std::uint32_t face_r_dim = get_output_face_r_dim(C_id);
+    const std::uint32_t tile_c_dim = get_output_tile_c_dim(C_id);
+    const std::uint32_t num_faces = get_output_num_faces(C_id);
+    const bool partial_face = get_output_partial_face(C_id);
+    const bool narrow_tile = get_output_narrow_tile(C_id);
+
+    const std::uint32_t tile_size = get_local_cb_interface(output_id).fifo_page_size;
+
+    ckernel::packer::configure_pack<DST_ACCUM_MODE, false, false>(
+        pack_src_format[C_id],
+        pack_dst_format[C_id],
+        tile_size,
+        face_r_dim,
+        tile_c_dim,
+        num_faces,
+        partial_face,
+        narrow_tile,
+        0
+    );
+
     llk_pack_init(C_id);
     llk_pack_dest_init<DST_ACCUM_MODE, false>();
 }
