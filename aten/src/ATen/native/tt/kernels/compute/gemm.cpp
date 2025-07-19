@@ -517,8 +517,8 @@ void MAIN {
 
 	    DPRINT << "XX gemm before compute" << ENDL();
 
-            gemm_unpack_AB(tt::CBIndex::c_0, tt::CBIndex::c_1, 0, 0);
-            gemm_compute<HF>(0, is_b_transposed);
+            UNPACK(gemm_unpack_AB(tt::CBIndex::c_0, tt::CBIndex::c_1, 0, 0));
+            MATH(gemm_compute<HF>(0, is_b_transposed));
 
 	    DPRINT << "XX gemm after compute" << ENDL();
 
