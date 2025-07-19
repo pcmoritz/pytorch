@@ -292,7 +292,7 @@ inline void gemm_math_init(
     const std::uint32_t ct_dim = 1,
     const std::uint32_t rt_dim = 1,
     const std::uint32_t kt_dim = 1) {
-    gemm_configure_addrmod<MATH_FIDELITY_DESC, FaceLayout, THROTTLE_LEVEL>(transpose, ct_dim, rt_dim, kt_dim);
+    gemm_configure_addrmod<MATH_FIDELITY_DESC, FaceLayout>(transpose, ct_dim, rt_dim, kt_dim);
 
     constexpr int MATH_FIDELITY_PHASES = get_math_num_fidelity_phases(MATH_FIDELITY_DESC);
     gemm_configure_mop<MATH_FIDELITY_PHASES, FaceLayout>(transpose > 0, ct_dim, rt_dim, kt_dim);
