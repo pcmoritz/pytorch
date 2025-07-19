@@ -304,7 +304,14 @@ inline void gemm_math_init(
 }
 
 inline void gemm_pack_init(const std::uint32_t C_id, const std::uint32_t transpose = 0) {
-    llk_pack_hw_configure_disaggregated<DST_ACCUM_MODE, false>(C_id);
+    llk_pack_params_t llk_pack_params = {
+        .pack_output = C_id,
+        .relu_config = {
+            .f = {
+                .ApplyRelu = (std::uint32_t)ReluType::NO_RELU,
+                .Threshold = 0,
+            }}};
+    llk_pack_hw_configure<DST_ACCUM_MODE, false, false>(&llk_pack_params);
     llk_pack_init(C_id);
     llk_pack_dest_init<DST_ACCUM_MODE, false>();
 }
