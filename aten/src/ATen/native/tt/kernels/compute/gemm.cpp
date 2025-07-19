@@ -298,7 +298,7 @@ inline void gemm_math_init(
     gemm_configure_mop<MATH_FIDELITY_PHASES, FaceLayout>(transpose > 0, ct_dim, rt_dim, kt_dim);
     math::reset_counters(p_setrwc::SET_ABD_F);
 
-    llk_math_pack_sync_init<DST_ACCUM_MODE>();
+    _llk_math_pack_sync_init_<DST_SYNC_MODE, DST_ACCUM_MODE>();
 
     llk_math_hw_configure_disaggregated(A_id, B_id)
 }
