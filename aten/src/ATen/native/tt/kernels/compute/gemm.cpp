@@ -386,7 +386,7 @@ inline void gemm_unpack_AB(
         std::uint32_t next_address_b = base_address_b + next_offset_address_b;
 
         // Wait for free context
-        wait_for_next_context(2);
+        ckernel::unpacker::wait_for_next_context(2);
 
         // Program unpacker 1 base address
         if (0 == unp_cfg_context)
@@ -456,7 +456,7 @@ inline void gemm_unpack_AB(
         t6_semaphore_get(semaphore::UNPACK_SYNC);
 
         // Switch unpacker config context
-        switch_config_context(unp_cfg_context);
+        ckernel::unpacker::switch_config_context(unp_cfg_context);
     }
 }
 
