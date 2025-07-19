@@ -95,6 +95,7 @@ inline void gemm_unpack_AB_configure_mop(
     tmp.program(instrn_buffer);
 }
 
+#ifdef TRISC_UNPACK
 inline void gemm_unpack_init(
     const std::uint32_t A_id,
     const std::uint32_t B_id,
@@ -146,6 +147,7 @@ inline void gemm_unpack_init(
 
     gemm_unpack_AB_configure_mop(ct_dim, rt_dim, kt_dim);
 }
+#endif
 
 template <int MATH_FIDELITY_DESC, DstTileFaceLayout FaceLayout = DstTileFaceLayout::RowMajor>
 inline void gemm_configure_addrmod(
