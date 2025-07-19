@@ -349,6 +349,117 @@ inline void gemm_init(
     PACK(gemm_pack_init(C_id, transpose));
 }
 
+inline void gemm_unpack_AB(
+    uint32_t A_id, uint32_t B_id,
+    const std::uint32_t A_tile_index,
+    const std::uint32_t B_tile_index,
+    const std::uint32_t ct_dim = 1,
+    const std::uint32_t rt_dim = 1,
+    const std::uint32_t kt_dim = 1
+) {
+    volatile uint* cfg = get_cfg_pointer();  // get pointer to registers for current state ID
+
+    std::uint32_t base_address_a = get_local_cb_interface(A_id).fifo_rd_ptr - 1;
+    std::uint32_t base_address_b = get_local_cb_interface(B_id).fifo_rd_ptr - 1;
+
+    std::uint32_t tile_size_a = get_local_cb_interface(A_id).fifo_page_size;
+    std::uint32_t tile_size_b = get_local_cb_interface(B_id).fifo_page_size;
+
+    const bool reuse_a        = ct_dim >= rt_dim;
+    const std::uint32_t t_dim = reuse_a ? rt_dim : ct_dim;
+
+    if (!reuse_a) {
+        TTI_MULDMAREG(0, p_gpr_unpack::TMP_LO, p_gpr_unpack::TILE_SIZE_B, p_gpr_unpack::KT_DIM);
+    }
+
+    for (uint t = 0; t < t_dim; t++)
+    {
+        std::uint32_t offset_address_a      = tile_size_a * (A_tile_index + (reuse_a ? (t * kt_dim) : (0)));
+        std::uint32_t next_offset_address_a = tile_size_a * (A_tile_index + (reuse_a ? ((t + 1) * kt_dim) : (0)));
+
+        std::uint32_t offset_address_b      = tile_size_b * (B_tile_index + (reuse_a ? (0) : (t)));
+        std::uint32_t next_offset_address_b = tile_size_b * (B_tile_index + (reuse_a ? (0) : (t + 1)));
+
+        std::uint32_t address_a      = base_address_a + offset_address_a;
+        std::uint32_t next_address_a = base_address_a + next_offset_address_a;
+        std::uint32_t address_b      = base_address_b + offset_address_b;
+        std::uint32_t next_address_b = base_address_b + next_offset_address_b;
+
+        // Wait for free context
+        wait_for_next_context(2);
+
+        // Program unpacker 1 base address
+        if (0 == unp_cfg_context)
+        {
+            cfg[THCON_SEC0_REG3_Base_address_ADDR32] = address_b;
+            cfg[THCON_SEC1_REG3_Base_address_ADDR32] = address_a;
+        }
+        else
+        {
+            cfg[THCON_SEC0_REG3_Base_cntx1_address_ADDR32] = address_b;
+            cfg[THCON_SEC1_REG3_Base_cntx1_address_ADDR32] = address_a;
+        }
+
+        semaphore_post(semaphore::UNPACK_SYNC); // Trisc::SEMPOST for context acquire
+
+        // Stall unpacker until pending CFG writes from Trisc have completed
+        TTI_STALLWAIT(p_stall::STALL_UNPACK, p_stall::TRISC_CFG);
+
+        if (reuse_a)
+        {
+            TTI_UNPACR(SrcB, 0, 0, 0, 0, 1 /*Set OvrdThreadId*/, 1 /*Set Dvalid*/, p_unpacr::RAREFYB_DISABLE, 0, 0 /* Set ContextIdInc */, 0, 0, 1);
+
+            if ((t + 1) < t_dim)
+            {
+                // Let's load one more tile into srcB
+                TT_SETDMAREG(0, LOWER_HALFWORD(next_address_a), 0, LO_16(p_gpr_unpack::TMP0));
+                TT_SETDMAREG(0, UPPER_HALFWORD(next_address_a), 0, HI_16(p_gpr_unpack::TMP0));
+                if (0 == unp_cfg_context)
+                {
+                    TTI_REG2FLOP(1, 0, 0, 0, THCON_SEC1_REG3_Base_address_ADDR32 - THCON_CFGREG_BASE_ADDR32, p_gpr_unpack::TMP0);
+                }
+                else
+                {
+                    TTI_REG2FLOP(1, 0, 0, 0, THCON_SEC1_REG3_Base_cntx1_address_ADDR32 - THCON_CFGREG_BASE_ADDR32, p_gpr_unpack::TMP0);
+                }
+                TTI_DMANOP;
+                TTI_UNPACR(SrcB, 0, 0, 0, 0, 1 /*Set OvrdThreadId*/, 1 /*Set Dvalid*/, p_unpacr::RAREFYB_DISABLE, 0, 0 /* Set ContextIdInc */, 0, 0, 1);
+                t++;
+            }
+        }
+        else
+        {
+            TTI_UNPACR(SrcA, 0, 0, 0, 0, 1 /*Set OvrdThreadId*/, 1 /*Set Dvalid*/, p_unpacr::RAREFYB_DISABLE, 0, 0 /* Set ContextIdInc */, 0, 0, 1);
+
+            if ((t + 1) < t_dim)
+            {
+                // Let's load one more tile into srcB
+                TT_SETDMAREG(0, LOWER_HALFWORD(next_address_b), 0, LO_16(p_gpr_unpack::TMP0));
+                TT_SETDMAREG(0, UPPER_HALFWORD(next_address_b), 0, HI_16(p_gpr_unpack::TMP0));
+                if (0 == unp_cfg_context)
+                {
+                    TTI_REG2FLOP(1, 0, 0, 0, THCON_SEC0_REG3_Base_address_ADDR32 - THCON_CFGREG_BASE_ADDR32, p_gpr_unpack::TMP0);
+                }
+                else
+                {
+                    TTI_REG2FLOP(1, 0, 0, 0, THCON_SEC0_REG3_Base_cntx1_address_ADDR32 - THCON_CFGREG_BASE_ADDR32, p_gpr_unpack::TMP0);
+                }
+                TTI_DMANOP;
+                TTI_UNPACR(SrcA, 0, 0, 0, 0, 1 /*Set OvrdThreadId*/, 1 /*Set Dvalid*/, p_unpacr::RAREFYB_DISABLE, 0, 0 /* Set ContextIdInc */, 0, 0, 1);
+                t++;
+            }
+        }
+
+        TT_MOP(0, (reuse_a ? ct_dim : rt_dim) - 1, unp_cfg_context == 0 ? 0 : 0xff); // Run the MOP
+
+        // T6::SEMGET for context release
+        t6_semaphore_get(semaphore::UNPACK_SYNC);
+
+        // Switch unpacker config context
+        switch_config_context(unp_cfg_context);
+    }
+}
+
 template <int MATH_FIDELITY_DESC, DstTileFaceLayout FaceLayout = DstTileFaceLayout::RowMajor>
 inline void gemm_compute(
     uint dst_index, 
@@ -406,8 +517,8 @@ void MAIN {
 
 	    DPRINT << "XX gemm before compute" << ENDL();
 
-            // TODO: Add call to _llk_unpack_AB_matmul_
-            // gemm_compute<HF>(0, is_b_transposed);
+            gemm_unpack_AB(tt::CBIndex::c_0, tt::CBIndex::c_1, 0, 0);
+            gemm_compute<HF>(0, is_b_transposed);
 
 	    DPRINT << "XX gemm after compute" << ENDL();
 
