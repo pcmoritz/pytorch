@@ -341,7 +341,7 @@ inline void gemm_init(
     const std::uint32_t kt_dim = 1)
 {
     UNPACK(gemm_unpack_init(A_id, B_id, transpose));
-    MATH(gemm_math_init(A_id, B_id, transpose));
+    MATH(gemm_math_init<MATH_FIDELITY>(A_id, B_id, transpose));
     PACK(gemm_pack_init(C_id, transpose));
 }
 
