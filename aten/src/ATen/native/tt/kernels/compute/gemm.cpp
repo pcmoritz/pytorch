@@ -317,7 +317,7 @@ inline void gemm_pack_init(const std::uint32_t C_id, const std::uint32_t transpo
     const bool partial_face = get_output_partial_face(C_id);
     const bool narrow_tile = get_output_narrow_tile(C_id);
 
-    const std::uint32_t tile_size = get_local_cb_interface(output_id).fifo_page_size;
+    const std::uint32_t tile_size = get_local_cb_interface(C_id).fifo_page_size;
 
     ckernel::packer::configure_pack<DST_ACCUM_MODE, false, false>(
         pack_src_format[C_id],
