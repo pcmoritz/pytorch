@@ -284,7 +284,7 @@ inline void gemm_configure_mop(
     tmp.program(instrn_buffer);
 }
 
-template <int MATH_FIDELITY_DESC, int THROTTLE_LEVEL = 0>
+template <int MATH_FIDELITY_DESC, DstTileFaceLayout FaceLayout = DstTileFaceLayout::RowMajor, int THROTTLE_LEVEL = 0>
 inline void gemm_math_init(
     const std::uint32_t A_id,
     const std::uint32_t B_id,
@@ -299,6 +299,7 @@ inline void gemm_math_init(
     math::reset_counters(p_setrwc::SET_ABD_F);
 
     _llk_math_pack_sync_init_<DST_SYNC_MODE, DST_ACCUM_MODE>();
+
 
     llk_math_hw_configure_disaggregated(A_id, B_id)
 }
