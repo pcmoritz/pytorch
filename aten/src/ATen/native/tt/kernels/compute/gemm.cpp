@@ -284,6 +284,7 @@ inline void gemm_configure_mop(
     tmp.program(instrn_buffer);
 }
 
+#ifdef TRISC_MATH
 template <int MATH_FIDELITY_DESC, DstTileFaceLayout FaceLayout = DstTileFaceLayout::RowMajor, int THROTTLE_LEVEL = 0>
 inline void gemm_math_init(
     const std::uint32_t A_id,
@@ -302,6 +303,7 @@ inline void gemm_math_init(
 
     _llk_math_hw_configure_<false, false>(unpack_dst_format[A_id], unpack_dst_format[B_id]);
 }
+#endif
 
 #ifdef TRISC_PACK
 #include "llk_outputs.h"
