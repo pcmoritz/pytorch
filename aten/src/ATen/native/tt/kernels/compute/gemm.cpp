@@ -284,7 +284,7 @@ inline void gemm_configure_mop(
     tmp.program(instrn_buffer);
 }
 
-template <int NUM_FIDELITY_PHASES, int THROTTLE_LEVEL = 0>
+template <int MATH_FIDELITY_DESC, int THROTTLE_LEVEL = 0>
 inline void gemm_math_init(
     const std::uint32_t A_id,
     const std::uint32_t B_id,
@@ -379,6 +379,7 @@ void MAIN {
 
 	    DPRINT << "XX gemm before compute" << ENDL();
 
+            // TODO: Add call to _llk_unpack_AB_matmul_
             // gemm_compute<HF>(0, is_b_transposed);
 
 	    DPRINT << "XX gemm after compute" << ENDL();
