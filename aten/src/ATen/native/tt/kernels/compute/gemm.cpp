@@ -14,7 +14,6 @@
 #include "cmath_common.h"
 #include "cunpack_common.h"
 #include "llk_math_common.h"
-#include "llk_outputs.h"
 
 #include "compute_kernel_api/matmul.h"
 
@@ -305,6 +304,8 @@ inline void gemm_math_init(
 }
 
 #ifdef TRISC_PACK
+#include "llk_outputs.h"
+
 inline void gemm_pack_init(const std::uint32_t C_id, const std::uint32_t transpose = 0) {
     const std::uint32_t face_r_dim = get_output_face_r_dim(C_id);
     const std::uint32_t tile_c_dim = get_output_tile_c_dim(C_id);
