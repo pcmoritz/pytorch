@@ -14,6 +14,7 @@
 #include "cmath_common.h"
 #include "cunpack_common.h"
 #include "llk_math_common.h"
+#include "llk_outputs.h"
 
 #include "compute_kernel_api/matmul.h"
 
