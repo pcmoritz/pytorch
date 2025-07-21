@@ -24,6 +24,214 @@ using std::uint32_t;
 #define HF 0
 #endif
 
+template <bool is_fp32_dest_acc_en, bool row_pool = false, bool fpu_srnd_en = false, bool pack_srnd_en = false, bool disable_src_zero_flag = false>
+inline void gemm_configure_unpack_AB(
+    const uint unpA_src_format,
+    const uint unpB_src_format,
+    const uint unpA_dst_format,
+    const uint unpB_dst_format,
+    const uint unpA_face_r_dim      = FACE_R_DIM,
+    const uint unpB_face_r_dim      = FACE_R_DIM,
+    const bool transpose_xy_srca_en = false,
+    const uint unpA_num_faces       = 4,
+    const uint unpB_num_faces       = 4)
+{
+    // Check that unpacker is done (all contexts freed up) before starting hw configuration
+    ckernel::unpacker::wait_for_idle();
+
+    // Reset address counters
+    ckernel::unpacker::unpacker_addr_counter_init();
+
+    const uint unpA_src_format_masked = (uint)unpA_src_format & 0x0F;
+    const uint unpB_src_format_masked = (uint)unpB_src_format & 0x0F;
+    const uint unpA_dst_format_masked = (uint)unpA_dst_format & 0x0F;
+    const uint unpB_dst_format_masked = (uint)unpB_dst_format & 0x0F;
+
+    // Get pointer to registers for current state ID
+    volatile uint tt_reg_ptr *cfg = get_cfg_pointer();
+
+    uint unpA_ch1_x_stride = (uint)(unpA_dst_format_masked & 0x3) == (uint)DataFormat::Float32   ? 4
+                             : (uint)(unpA_dst_format_masked & 0x3) == (uint)DataFormat::Float16 ? 2
+                                                                                                 : 1;
+    uint unpB_ch1_x_stride = (uint)(unpB_dst_format_masked & 0x3) == (uint)DataFormat::Float32   ? 4
+                             : (uint)(unpB_dst_format_masked & 0x3) == (uint)DataFormat::Float16 ? 2
+                                                                                                 : 1;
+    uint unpA_ch1_z_stride = FACE_C_DIM * FACE_R_DIM * unpA_ch1_x_stride;
+    uint unpB_ch1_z_stride = FACE_C_DIM * FACE_R_DIM * unpB_ch1_x_stride;
+    uint exp_width         = ((uint)unpA_dst_format_masked >> 2) & 0x1; // 0=5-bit, 1=8-bit
+
+    // Strides for incrementing ch1 address to srcA and srcB
+    cfg[UNP0_ADDR_CTRL_ZW_REG_1_Zstride_ADDR32] =
+        (0 << UNP0_ADDR_CTRL_ZW_REG_1_Wstride_SHAMT) |
+        (unpA_ch1_z_stride << UNP0_ADDR_CTRL_ZW_REG_1_Zstride_SHAMT); // Z and W(not used) stride for dest address (ch1)
+
+    cfg[UNP1_ADDR_CTRL_ZW_REG_1_Zstride_ADDR32] =
+        (0 << UNP1_ADDR_CTRL_ZW_REG_1_Wstride_SHAMT) |
+        (unpB_ch1_z_stride << UNP1_ADDR_CTRL_ZW_REG_1_Zstride_SHAMT); // Z and W(not used) stride for dest address (ch1)
+
+    // Math ALU_FORMAT_REG
+    t6_mutex_acquire(mutex::REG_RMW);
+    uint alu_src_format = (0x0 << ALU_FORMAT_SPEC_REG_SrcA_val_SHAMT);
+
+    constexpr uint mask0 = (1 << (ALU_FORMAT_SPEC_REG_Dstacc_override_SHAMT + 1)) - 1;
+    cfg_reg_rmw_tensix<ALU_FORMAT_SPEC_REG_SrcA_val_ADDR32, ALU_FORMAT_SPEC_REG_SrcA_val_SHAMT, mask0>(alu_src_format);
+
+    ckernel::unpacker::alu_config_u alu_payload = {.val = 0};
+
+    uint32_t fp32_dest_acc_en  = (is_fp32_dest_acc_en) ? (1) : (0);
+    uint32_t int8_math_enabled = ((uint)unpA_dst_format_masked == (uint)DataFormat::Int8) || ((uint)unpB_dst_format_masked == (uint)DataFormat::Int8) ||
+                                 ((uint)unpA_dst_format_masked == (uint)DataFormat::Int32) || ((uint)unpB_dst_format_masked == (uint)DataFormat::Int32);
+
+    constexpr uint alu_format_mask = ALU_FORMAT_SPEC_REG0_SrcAUnsigned_MASK | ALU_FORMAT_SPEC_REG0_SrcBUnsigned_MASK;
+
+    if ((uint)unpA_src_format == (uint)DataFormat::UInt8)
+    {
+        alu_payload.f.ALU_FORMAT_SPEC_REG0_SrcAUnsigned = 1;
+    }
+    if ((uint)unpB_src_format == (uint)DataFormat::UInt8)
+    {
+        alu_payload.f.ALU_FORMAT_SPEC_REG0_SrcBUnsigned = 1;
+    }
+
+    // FP32 accumulation and SFPU to read dest as FP32
+    // NOTE: This assumes these config fields are adjacent and in same register!!
+    static_assert(ALU_ACC_CTRL_Fp32_enabled_ADDR32 == ALU_FORMAT_SPEC_REG0_SrcA_ADDR32);
+    static_assert(ALU_ACC_CTRL_Fp32_enabled_ADDR32 == ALU_ACC_CTRL_SFPU_Fp32_enabled_ADDR32);
+    constexpr uint alu_dest_format_mask          = ALU_ACC_CTRL_SFPU_Fp32_enabled_MASK | ALU_ACC_CTRL_Fp32_enabled_MASK;
+    alu_payload.f.ALU_ACC_CTRL_Fp32_enabled      = fp32_dest_acc_en;
+    alu_payload.f.ALU_ACC_CTRL_SFPU_Fp32_enabled = fp32_dest_acc_en;
+    constexpr uint alu_stoch_rnd_mask = ALU_ROUNDING_MODE_Fpu_srnd_en_MASK | ALU_ROUNDING_MODE_Gasket_srnd_en_MASK | ALU_ROUNDING_MODE_Packer_srnd_en_MASK;
+    alu_payload.f.ALU_ROUNDING_MODE_Fpu_srnd_en    = fpu_srnd_en;
+    alu_payload.f.ALU_ROUNDING_MODE_Gasket_srnd_en = pack_srnd_en;
+    alu_payload.f.ALU_ROUNDING_MODE_Packer_srnd_en = pack_srnd_en;
+
+    constexpr uint alu_mask = alu_format_mask | alu_dest_format_mask | alu_stoch_rnd_mask;
+
+    cfg_reg_rmw_tensix<ALU_FORMAT_SPEC_REG0_SrcA_ADDR32, 0, alu_mask>(alu_payload.val);
+
+    uint32_t src_zeroflags_disable = ((uint)unpA_dst_format == (uint)DataFormat::UInt16) || ((uint)unpB_dst_format == (uint)DataFormat::UInt16);
+    if constexpr (disable_src_zero_flag)
+    {
+        src_zeroflags_disable = true;
+    }
+    cfg_reg_rmw_tensix<ALU_ACC_CTRL_Zero_Flag_disabled_src_RMW>(src_zeroflags_disable);
+
+    // Set FP8 E4M3 mode, bit is accessible by unpacker/packer
+    if ((unpA_src_format & 0x1F) == (uint)DataFormat::Fp8_e4m3)
+    {
+        cfg_reg_rmw_tensix<THCON_SEC0_REG1_Unp_LF8_4b_exp_RMW>(1);
+    }
+
+    if ((unpB_src_format & 0x1F) == (uint)DataFormat::Fp8_e4m3)
+    {
+        cfg_reg_rmw_tensix<THCON_SEC1_REG1_Unp_LF8_4b_exp_RMW>(1);
+    }
+
+    t6_mutex_release(mutex::REG_RMW);
+
+    // Set tile descriptor
+    ckernel::unpacker::unpack_tile_descriptor_u tile_descriptor;
+    for (uint i = 0; i < ckernel::unpacker::TILE_DESC_SIZE; i++)
+    {
+        tile_descriptor.val[i] = 0;
+    }
+    tile_descriptor.f.in_data_format = (uint)unpA_src_format_masked;
+    tile_descriptor.f.uncompressed   = 1; // Input tile is uncompressed
+    tile_descriptor.f.x_dim          = 0; // Not used for unpA as value is overridden by per context x_dim set below. Used for unpB
+    tile_descriptor.f.y_dim          = 1;
+    tile_descriptor.f.z_dim          = unpA_num_faces;
+    // tile_descriptor.f.blobs_per_xy_plane = 0;
+    // tile_descriptor.f.blobs_y_start = 0;
+    for (uint i = 0; i < ckernel::unpacker::TILE_DESC_SIZE; i++)
+    {
+        cfg[THCON_SEC0_REG0_TileDescriptor_ADDR32 + i] = tile_descriptor.val[i];
+    }
+    tile_descriptor.f.in_data_format = row_pool ? (uint)DataFormat::Float32 : unpB_src_format_masked;
+    tile_descriptor.f.x_dim          = unpB_face_r_dim * FACE_C_DIM;
+    tile_descriptor.f.z_dim          = unpB_num_faces;
+    for (uint i = 0; i < ckernel::unpacker::TILE_DESC_SIZE; i++)
+    {
+        cfg[THCON_SEC1_REG0_TileDescriptor_ADDR32 + i] = tile_descriptor.val[i];
+    }
+
+    // Set unpacker config
+    ckernel::unpacker::unpack_config_u config;
+    for (uint i = 0; i < ckernel::unpacker::CONFIG_SIZE; i++)
+    {
+        config.val[i] = 0;
+    }
+    config.f.out_data_format = unpA_dst_format_masked;
+    config.f.throttle_mode   = 2;
+    config.f.context_count   = 0;
+    config.f.haloize_mode    = transpose_xy_srca_en ? 1 : 0;
+    // config.f.upsample_rate   = 0;
+    // config.f.upsamle_and_interlave  = 0;
+    // config.f.shift_amount = 0;
+    config.f.uncompress_cntx0_3 = 0xf;
+    config.f.uncompress_cntx4_7 = 0xf;
+    // config.f.limit_addr = 0; // Set dynamically
+    // config.f.fifo_size = 0; // Set dynamically
+    for (uint i = 0; i < ckernel::unpacker::CONFIG_SIZE; i++)
+    {
+        cfg[THCON_SEC0_REG2_Out_data_format_ADDR32 + i] = config.val[i];
+    }
+
+    config.f.out_data_format = row_pool ? ((uint)DataFormat::Float16 | (exp_width << 2)) : unpB_dst_format_masked;
+    config.f.haloize_mode    = 0;
+
+    for (uint i = 0; i < ckernel::unpacker::CONFIG_SIZE; i++)
+    {
+        cfg[THCON_SEC1_REG2_Out_data_format_ADDR32 + i] = config.val[i];
+    }
+
+    uint unpA_x_end = (unpA_face_r_dim == 0) ? 1 : (unpA_face_r_dim << 4) - 1;
+    TTI_SETADCXX(p_setadc::UNP_A, unpA_x_end, 0x0);
+    TTI_SETADCXX(p_setadc::UNP_B, (unpB_face_r_dim << 4) - 1, 0x0);
+
+    // Program base address for all 2 sections (each section address is loaded to corresponding context)
+    // Load dummy data to unused location if face height is 0
+    const uint Dest_cntx0_address                  = unpA_face_r_dim == 0 ? 22 * 16 : 4 * 16;
+    const uint Dest_cntx1_address                  = unpA_face_r_dim == 0 ? 22 * 16 : 4 * 16;
+    cfg[THCON_SEC0_REG5_Dest_cntx0_address_ADDR32] = Dest_cntx0_address | (Dest_cntx1_address << 16);
+
+    // Program unpacker0 per context x_dim (face size in l1)
+    // Overrides value set by tile descriptor when thread override bit is set in unpack instruction
+    const uint face_dim                          = unpA_face_r_dim * FACE_C_DIM;
+    cfg[THCON_SEC0_REG5_Tile_x_dim_cntx0_ADDR32] = face_dim | (face_dim << 16);
+
+    constexpr uint face_dim_16x16         = FACE_R_DIM * FACE_C_DIM;
+    regfile[p_gpr_unpack::FACE_DIM_16x16] = (face_dim_16x16 / 1) | ((face_dim_16x16 / 1) << 16);
+    regfile[p_gpr_unpack::FACE_DIM_8x16]  = (face_dim_16x16 / 2) | ((face_dim_16x16 / 2) << 16);
+    regfile[p_gpr_unpack::FACE_DIM_4x16]  = (face_dim_16x16 / 4) | ((face_dim_16x16 / 4) << 16);
+    regfile[p_gpr_unpack::FACE_DIM_2x16]  = (face_dim_16x16 / 8) | ((face_dim_16x16 / 8) << 16);
+    regfile[p_gpr_unpack::FACE_DIM_1x16]  = (face_dim_16x16 / 16) | ((face_dim_16x16 / 16) << 16);
+    sync_regfile_write(p_gpr_unpack::FACE_DIM_1x16);
+
+    TTI_SETC16(SRCA_SET_Base_ADDR32, 0x4);
+
+    // Enable address counter for unpacker ch1/dst address
+    // final address is calculated as: Dest_cntx0/1_address + address_counter_ch1
+    // used for face by face unpacking of entire tile into srcA
+    cfg[UNP0_ADD_DEST_ADDR_CNTR_add_dest_addr_cntr_ADDR32] = 0x1 << UNP0_ADD_DEST_ADDR_CNTR_add_dest_addr_cntr_SHAMT;
+
+    /*
+    // Workaround for HW bug (fp32 dest and movd2a/b is used with srcA/B configured with 5-bit exponent)
+    if (is_fp32_dest_acc_en && (exp_width == 0)) {
+        reg_write(RISCV_DEBUG_REG_DBG_FEATURE_DISABLE, 1<<11); // Set debug feature disable bit 11
+                                                               // workaround for bug tenstorrent/budabackend#1372
+    }
+    */
+    // Workaround for HW bug (int32 dest and movd2a/b is used with srcA/B configured as int8)
+    if (int8_math_enabled || (fp32_dest_acc_en && ((uint)unpA_dst_format == (uint)DataFormat::UInt16)))
+    {
+        reg_write(RISCV_DEBUG_REG_DBG_FEATURE_DISABLE, 1 << 11); // Set debug feature disable bit 11
+                                                                 // workaround for bug tenstorrent/budabackend#1948
+    }
+
+    // Clear context ID
+    ckernel::unpacker::reset_config_context();
+}
+
 inline void gemm_unpack_AB_configure_mop(
     const std::uint32_t ct_dim,
     const std::uint32_t rt_dim,
@@ -113,7 +321,7 @@ inline void gemm_unpack_init(
     const std::uint32_t A_tile_size = get_local_cb_interface(A_id).fifo_page_size;
     const std::uint32_t B_tile_size = get_local_cb_interface(B_id).fifo_page_size;
  
-    ckernel::unpacker::configure_unpack_AB<true>(
+    gemm_configure_unpack_AB<true>(
         unpack_src_format[A_id],
         unpack_src_format[B_id],
         unpack_dst_format[A_id],
